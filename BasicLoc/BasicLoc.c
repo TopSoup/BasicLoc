@@ -8,6 +8,30 @@ INCLUDES AND VARIABLE DEFINITIONS
 
 #include "Location.h"
 
+/*===========================================================================
+
+FOR ZTE G180 MACROS DECLARATIONS
+
+===========================================================================*/
+//ZTE CLSID
+#define AEECLSID_ZTE_APP			0x01007100
+#define AEECLSID_ZTEAPPCORE			(AEECLSID_ZTE_APP + 0x1)
+#define AEECLSID_ZTE_TTSSVC			0x01007A04
+
+//EVENT
+#define EVT_POC				0x8000		// TTS
+#define EVT_POC_POWEROFF	0x8001		// POWEROFF
+#define EVT_POC_BATTERY		0x8002		// BATTERY
+
+//KEY
+#define AVK_PTT_G180		0xE082
+#define AVK_PLUS_G180		0xE047
+#define AVK_DEC_G180		0xE048
+#define AVK_LONGPOWER_G180	0xE02D
+#define AVK_POWER_G180		0xE02E
+
+
+
 #define BL_RELEASEIF(p) BL_FreeIF((IBase **)&(p))
 
 typedef struct _CBasicLoc
@@ -16,6 +40,7 @@ typedef struct _CBasicLoc
 
 	AEEGPSMode		m_gpsMode;	//gpsMode
 	GetGPSInfo		m_gpsInfo;	//gpsInfo
+	AEECallback		cbWatcherTimer;
 
 }CBasicLoc;
 
@@ -47,20 +72,45 @@ void BL_FreeIF(IBase ** ppif)
 	}
 }
 
+/*===========================================================================
+This function for play tts.
+===========================================================================*/
+void play_tts(CBasicLoc *pme, AECHAR* wtxt)
+{
+	int len = 0;
+
+	DBGPRINTF("play_tts in");
+	if (wtxt == NULL)
+	{
+		DBGPRINTF("Error Input TTS text");
+	}
+
+	len = WSTRLEN(wtxt);
+	DBGPRINTF("play_tts len:%d", len);
+	if (!ISHELL_SendEvent(pme->a.m_pIShell, AEECLSID_ZTEAPPCORE, EVT_POC, len, (uint32)(wtxt))) {
+		DBGPRINTF("PlayTTS ISHELL_SendEvent EVT_POC failure");
+	}
+}
+
 static boolean CBasicLoc_InitAppData(CBasicLoc *pme)
 {
+	GetGPSInfo *pGetGPSInfo = &pme->m_gpsInfo;
+
 	pme->m_gpsMode = AEEGPS_MODE_TRACK_OPTIMAL;
+
+	pGetGPSInfo->bAbort = TRUE;
+
+	CALLBACK_Init(&pme->cbWatcherTimer, CBasicLoc_GetGPSInfo_Watcher, pme);
+	ISHELL_SetTimerEx(pme->a.m_pIShell, 1000, &pme->cbWatcherTimer);
 
 	return TRUE;
 }
 
 static void CBasicLoc_FreeAppData(CBasicLoc *pme)
 {
-	GetGPSInfo *pGetGPSInfo = &pme->m_gpsInfo;
-
 	CBasicLoc_LocStop(pme);
 
-	CALLBACK_Cancel(&pGetGPSInfo->cbWatcherTimer);
+	CALLBACK_Cancel(&pme->cbWatcherTimer);
 }
 
 int AEEClsCreateInstance(AEECLSID ClsId, IShell * pIShell, IModule * pMod, void ** ppObj)
@@ -106,13 +156,27 @@ static boolean CBasicLoc_HandleEvent(CBasicLoc * pme, AEEEvent eCode, uint16 wPa
 	switch (eCode){
 	case EVT_APP_START:
 		DBGPRINTF("EVT_APP_START");
-		CBasicLoc_LocStart(pme);
+		play_tts(pme, L"start");
 		return(TRUE);
 
 	case EVT_APP_STOP:
 		DBGPRINTF("EVT_APP_STOP");
 		return(TRUE);
 
+	case EVT_KEY:
+	{
+		DBGPRINTF("EVT_KEY");
+		//case EVT_KEY_PRESS:
+		if (wParam == AVK_PTT_G180 || wParam == AVK_PTT)
+		{
+			DBGPRINTF("AVK_PTT %x", AVK_PTT_G180);
+			pme->m_gpsMode = (pme->m_gpsMode == AEEGPS_MODE_TRACK_STANDALONE) ? AEEGPS_MODE_TRACK_OPTIMAL : AEEGPS_MODE_TRACK_STANDALONE;
+			DBGPRINTF("Change gpsMode %x", pme->m_gpsMode);
+			CBasicLoc_LocStop(pme);
+			CBasicLoc_LocStart(pme);
+		}
+		return(TRUE);
+	}
 	case EVT_NOTIFY:
 	{
 		AEENotify *wp = (AEENotify *)dwParam;
@@ -165,9 +229,9 @@ static void CBasicLoc_LocStart(CBasicLoc *pme)
 			pGetGPSInfo->theInfo.nErr = nErr;
 			DBGPRINTF("Loc_Start Failed! Err:%d", nErr);
 		}
-		else {
-			CALLBACK_Init(&pGetGPSInfo->cbWatcherTimer, CBasicLoc_GetGPSInfo_Watcher, pme);
-			ISHELL_SetTimerEx(pme->a.m_pIShell, 1000, &pGetGPSInfo->cbWatcherTimer);
+		else
+		{
+			pGetGPSInfo->bAbort = FALSE;
 		}
 	}
 }
@@ -198,6 +262,7 @@ static void CBasicLoc_GetGPSInfo_Callback(CBasicLoc *pme)
 		pGetGPSInfo->dwFixNumber++;
 		pGetGPSInfo->dwFixDuration += pGetGPSInfo->wProgress;
 		pGetGPSInfo->wProgress = 0;
+		pGetGPSInfo->wIdleCount = 0;
 		DBGPRINTF("@GetGPSInfo fix:%d", pGetGPSInfo->dwFixNumber);
 	}
 	else if (pGetGPSInfo->theInfo.nErr == EIDLE) {
@@ -237,15 +302,14 @@ static void CBasicLoc_GetGPSInfo_Watcher(CBasicLoc *pme)
 	}
 
 	//重新启动
-	//1 空闲1分钟
+	//1 空闲30秒
 	//2 尝试3分钟未定位成功
-	if (pGetGPSInfo->wIdleCount || pGetGPSInfo->wProgress > 60*3)
+	if (pGetGPSInfo->wIdleCount > 30 || pGetGPSInfo->wProgress > 60*3)
 	{
 		DBGPRINTF("@Where GetGPS CBasicLoc_LocStart");
 		CBasicLoc_LocStop(pme);
 		CBasicLoc_LocStart(pme);
 	}
 
-	ISHELL_SetTimerEx(pme->a.m_pIShell, 1000, &pGetGPSInfo->cbWatcherTimer);
+	ISHELL_SetTimerEx(pme->a.m_pIShell, 1000, &pme->cbWatcherTimer);
 }
-

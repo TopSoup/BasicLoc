@@ -113,8 +113,8 @@ static void Loc_cbInterval( LocState *pts )
 
    // Request GPSInfo
    if( TRUE == pts->bInProgress && SUCCESS != IPOSDET_GetGPSInfo( pts->pPos, 
-      AEEGPS_GETINFO_LOCATION|AEEGPS_GETINFO_ALTITUDE, AEEGPS_ACCURACY_LEVEL1, 
-      &pts->theInfo, &pts->cbInfo ) ) {
+	   AEEGPS_GETINFO_LOCATION | AEEGPS_GETINFO_VELOCITY | AEEGPS_GETINFO_ALTITUDE | AEEGPS_GETINFO_VERSION_1, 
+	   AEEGPS_ACCURACY_LEVEL1, &pts->theInfo, &pts->cbInfo ) ) {
 
 	  DBGPRINTF( "IPOSDET_GetGPSInfo Failed!");
 	  

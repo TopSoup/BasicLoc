@@ -47,6 +47,8 @@ brewappmgr
 #ignore android building directory
 /obj/
 /gen/
+BasicLoc/basicloc/
+BasicLoc/objs/
 
 #mac operater
 __MACOSX/

@@ -53,7 +53,6 @@ typedef struct _GetGPSInfo {
    PositionData theInfo;
    IPosDet      *pPosDet;
    AEECallback  cbPosDet;
-   AEECallback  cbWatcherTimer;
    uint32       dwFixNumber;
    uint32       dwFixDuration;
    uint32       dwFail;
