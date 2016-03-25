@@ -1,0 +1,66 @@
+#ignore .metadata
+.metadata
+
+#ignore obj and lib file
+*.[oa]
+
+
+#ignore temp files
+*.swp
+*.temp
+*.tmp
+
+#ignore visualstudio tmp files
+*.mod
+*.elf
+*.dll
+*.lib
+*.suo
+*.ncb
+*.exp
+*.ilk
+*.pdb
+*.sdf
+*.bak
+*.dep
+*.opensdf
+*.plg
+*.opt
+*/Debug/
+*.bar
+*.brh
+*.mak
+*.exe
+
+#Brew Simulator temp files
+*..dir.dat
+/shared/
+brewappmgr
+
+#python
+*.pyc
+
+#ignore android project files
+*.properties
+*.positions
+
+#ignore android building directory
+/obj/
+/gen/
+
+#mac operater
+__MACOSX/
+.DS_Store
+navigate/doc/*
+
+#vs  file
+navigate/UpgradeLog.XML
+navigate/_UpgradeReport_Files/
+navigate/navigate.vcproj.*
+
+#brew shared 
+navigate/shared/
+
+#tags
+navigate/tags
+
