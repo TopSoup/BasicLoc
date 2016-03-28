@@ -3,6 +3,7 @@ INCLUDES AND VARIABLE DEFINITIONS
 =============================================================================== */
 #include "AEEStdLib.h"
 #include "AEEAppGen.h"        // Applet helper file
+#include "AEEWeb.h"
 #include "BasicLoc.bid"		// Applet-specific header that contains class ID
 #include "nmdef.h"
 
@@ -30,17 +31,38 @@ FOR ZTE G180 MACROS DECLARATIONS
 #define AVK_LONGPOWER_G180	0xE02D
 #define AVK_POWER_G180		0xE02E
 
-
-
+/************************************************************************/
+/* TIMER CONTROL                                                        */
+/************************************************************************/
+#ifdef AEE_SIMULATOR
+#define WATCHER_TIMER	15
+#define NET_TIMER		10
+#else
+#define WATCHER_TIMER	30
+#define NET_TIMER		20
+#endif
 #define BL_RELEASEIF(p) BL_FreeIF((IBase **)&(p))
 
 typedef struct _CBasicLoc
 {
 	AEEApplet		a;
 
+	//Location Services
 	AEEGPSMode		m_gpsMode;	//gpsMode
 	GetGPSInfo		m_gpsInfo;	//gpsInfo
-	AEECallback		cbWatcherTimer;
+	AEECallback		m_cbWatcherTimer;
+
+
+	//NetWork Services
+	INetMgr *			m_pINetMgr;             // Pointer to INetMgr
+	AEECallback			m_cbNetTimer;	        // Callback for NetWork
+	ISocket *			m_pISocket;             // Pointer to socket
+	uint32				m_nIdle;				//空闲状态
+	
+	char				m_szIP[20];				//服务器IP
+	uint16				m_nPort;				//服务器端口
+	char				m_szData[255];			//数据内容
+	uint16				m_nLen;					//数据长度
 
 }CBasicLoc;
 
@@ -55,6 +77,8 @@ static void		CBasicLoc_LocStart(CBasicLoc *pme);
 static void		CBasicLoc_LocStop(CBasicLoc *pme);
 static void		CBasicLoc_GetGPSInfo_Watcher(CBasicLoc *pme);
 static void		CBasicLoc_GetGPSInfo_Callback(CBasicLoc *pme);
+static void		CBasicLoc_Net_Timer(CBasicLoc *pme);
+static void		CBasicLoc_UDPWrite(CBasicLoc *pme);
 
 /*===============================================================================
 FUNCTION DEFINITIONS
@@ -85,7 +109,7 @@ void play_tts(CBasicLoc *pme, AECHAR* wtxt)
 		DBGPRINTF("Error Input TTS text");
 	}
 
-	len = WSTRLEN(wtxt);
+	len = WSTRLEN(wtxt) + 1;
 	DBGPRINTF("play_tts len:%d", len);
 	if (!ISHELL_SendEvent(pme->a.m_pIShell, AEECLSID_ZTEAPPCORE, EVT_POC, len, (uint32)(wtxt))) {
 		DBGPRINTF("PlayTTS ISHELL_SendEvent EVT_POC failure");
@@ -100,8 +124,11 @@ static boolean CBasicLoc_InitAppData(CBasicLoc *pme)
 
 	pGetGPSInfo->bAbort = TRUE;
 
-	CALLBACK_Init(&pme->cbWatcherTimer, CBasicLoc_GetGPSInfo_Watcher, pme);
-	ISHELL_SetTimerEx(pme->a.m_pIShell, 1000, &pme->cbWatcherTimer);
+	CALLBACK_Init(&pme->m_cbWatcherTimer, CBasicLoc_GetGPSInfo_Watcher, pme);
+	ISHELL_SetTimerEx(pme->a.m_pIShell, 10000, &pme->m_cbWatcherTimer);
+
+	CALLBACK_Init(&pme->m_cbNetTimer, CBasicLoc_Net_Timer, pme);
+	ISHELL_SetTimerEx(pme->a.m_pIShell, 8000, &pme->m_cbNetTimer);
 
 	return TRUE;
 }
@@ -110,7 +137,16 @@ static void CBasicLoc_FreeAppData(CBasicLoc *pme)
 {
 	CBasicLoc_LocStop(pme);
 
-	CALLBACK_Cancel(&pme->cbWatcherTimer);
+	CALLBACK_Cancel(&pme->m_cbWatcherTimer);
+	CALLBACK_Cancel(&pme->m_cbNetTimer);
+
+	if (pme->m_pISocket != NULL)
+	{
+		ISOCKET_Close(pme->m_pISocket);
+		BL_RELEASEIF(pme->m_pISocket);
+	}
+
+	BL_RELEASEIF(pme->m_pINetMgr);
 }
 
 int AEEClsCreateInstance(AEECLSID ClsId, IShell * pIShell, IModule * pMod, void ** ppObj)
@@ -264,6 +300,9 @@ static void CBasicLoc_GetGPSInfo_Callback(CBasicLoc *pme)
 		pGetGPSInfo->wProgress = 0;
 		pGetGPSInfo->wIdleCount = 0;
 		DBGPRINTF("@GetGPSInfo fix:%d", pGetGPSInfo->dwFixNumber);
+
+		//上报定位数据
+		CBasicLoc_UDPWrite(pme);
 	}
 	else if (pGetGPSInfo->theInfo.nErr == EIDLE) {
 		/* End of tracking */
@@ -304,12 +343,123 @@ static void CBasicLoc_GetGPSInfo_Watcher(CBasicLoc *pme)
 	//重新启动
 	//1 空闲30秒
 	//2 尝试3分钟未定位成功
-	if (pGetGPSInfo->wIdleCount > 30 || pGetGPSInfo->wProgress > 60*3)
+	if (pGetGPSInfo->wIdleCount > WATCHER_TIMER || pGetGPSInfo->wProgress > 60 * 3)
 	{
 		DBGPRINTF("@Where GetGPS CBasicLoc_LocStart");
 		CBasicLoc_LocStop(pme);
 		CBasicLoc_LocStart(pme);
 	}
 
-	ISHELL_SetTimerEx(pme->a.m_pIShell, 1000, &pme->cbWatcherTimer);
+	ISHELL_SetTimerEx(pme->a.m_pIShell, 1000, &pme->m_cbWatcherTimer);
+}
+
+/*===========================================================================
+This function called by basicloc modoule.
+===========================================================================*/
+static void CBasicLoc_Net_Timer(CBasicLoc *pme)
+{
+	//一小时回环
+	pme->m_nIdle = (pme->m_nIdle + 1) % 3600;
+
+	//查看网络是否初始化(20秒)
+	if (pme->m_nIdle > NET_TIMER)
+	{
+		//初始化网络管理模块
+		if (pme->m_pINetMgr == NULL)
+		{
+			if (ISHELL_CreateInstance(pme->a.m_pIShell, AEECLSID_NET, (void**)(&pme->m_pINetMgr)) != SUCCESS)
+			{
+				play_tts(pme, L"Create Network Manager Failed!");
+				DBGPRINTF("Create Network Manager Failed!");
+				pme->m_nIdle = 0;	//等待30秒继续初始化NETMGR
+			}
+		}
+		
+		//初始化网络接口
+		if (pme->m_pINetMgr != NULL && pme->m_pISocket == NULL)
+		{
+			pme->m_pISocket = INETMGR_OpenSocket(pme->m_pINetMgr, AEE_SOCK_DGRAM);
+
+			if (pme->m_pISocket == NULL) {
+				play_tts(pme, L"OpenSocket Failed!");
+				DBGPRINTF("OpenSocket Failed!");
+				pme->m_nIdle = 0;	//等待30秒继续初始化SOCKET
+			}
+
+			//设定服务器端口和IP
+			STRCPY(pme->m_szIP, "119.254.211.165");
+			pme->m_nPort = 10061;
+
+			STRCPY(pme->m_szData, "THIS IS TEST WORD.");
+			pme->m_nLen = STRLEN(pme->m_szData) + 1;
+
+		}
+	}
+
+	ISHELL_SetTimerEx(pme->a.m_pIShell, 1000, &pme->m_cbNetTimer);
+}
+
+//发送定位数据
+//*EX,2100428040,MOVE,053651,A,2945.7672,N,12016.8198,E,0.00,000,180510,FBFFFFFF#
+static void CBasicLoc_UDPWrite(CBasicLoc *pme)
+{
+	int nErr;
+	int nIP = 0, nPort = 0;
+	char deviceID[20];
+	char location[64];
+	char date[10];
+	double	degree = 0, min = 0;
+
+	JulianType julian;
+	uint32 secs = 0;
+	GetGPSInfo *pGetGPSInfo = &pme->m_gpsInfo;
+
+	if (pme->m_pISocket == NULL || pme->m_pINetMgr == NULL)
+	{
+		return;
+	}
+
+	/* 填充协议 */
+	
+	//设备编号
+	STRCPY(deviceID, "A000003841A7190");
+
+	//位置信息
+	if (FCMP_G(pGetGPSInfo->theInfo.lat, 0) && FCMP_G(pGetGPSInfo->theInfo.lon, 0))
+	{
+		degree = FLTTOINT(pGetGPSInfo->theInfo.lat);
+		min = FSUB(pGetGPSInfo->theInfo.lat, degree);
+		SPRINTF(location, "A,0000,0000,N,0000,0000,E,0.00,000");
+	}
+	else
+	{
+		SPRINTF(location, "V,0000,0000,N,0000,0000,E,0.00,000");
+	}
+
+	//时间
+	secs = GETTIMESECONDS();
+	GETJULIANDATE(secs, &julian);
+	SPRINTF(date, "%02d%02d16", julian.wDay, julian.wMonth);
+
+
+
+	INET_ATON(pme->m_szIP, (uint32 *)&nIP);
+	nPort = HTONS(pme->m_nPort);
+
+	nErr = ISOCKET_SendTo(pme->m_pISocket, pme->m_szData, pme->m_nLen, 0, nIP, nPort);
+
+	if (nErr == AEE_NET_WOULDBLOCK) {
+		DBGPRINTF("** sending...\n");
+		ISOCKET_Writeable(pme->m_pISocket, (PFNNOTIFY)CBasicLoc_UDPWrite, pme);
+	}
+	else if (nErr == AEE_NET_ERROR) {
+		DBGPRINTF("Send Failed: Error %d\n", ISOCKET_GetLastError(pme->m_pISocket));
+		BL_RELEASEIF(pme->m_pISocket);
+	}
+	else {
+		DBGPRINTF("** sending complete...\n");
+		// Reset Buffer
+		//MEMSET(pApp->m_pszMsg, 0, pApp->m_nDataLength);
+		//Echoer_UDPRead(pApp);
+	}
 }
