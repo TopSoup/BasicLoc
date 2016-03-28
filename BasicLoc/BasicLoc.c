@@ -387,8 +387,11 @@ static void CBasicLoc_Net_Timer(CBasicLoc *pme)
 			}
 
 			//设定服务器端口和IP
-			STRCPY(pme->m_szIP, "119.254.211.165");
-			pme->m_nPort = 10061;
+			//STRCPY(pme->m_szIP, "119.254.211.165");
+			//pme->m_nPort = 10061;
+
+			STRCPY(pme->m_szIP, "60.195.250.128");
+			pme->m_nPort = 6767;
 
 			STRCPY(pme->m_szData, "THIS IS TEST WORD.");
 			pme->m_nLen = STRLEN(pme->m_szData) + 1;
@@ -399,6 +402,28 @@ static void CBasicLoc_Net_Timer(CBasicLoc *pme)
 	ISHELL_SetTimerEx(pme->a.m_pIShell, 1000, &pme->m_cbNetTimer);
 }
 
+//格式化浮点 纬度:DDDMM.MMMM , 经度:DDMM, MMMMM
+char* FORMATFLT(char* szBuf, double val)
+{
+	double tmp = 0, tt = 0;
+	int d = 0, m = 0;
+
+	if (szBuf == NULL)
+		return NULL;
+
+	//取出放大100倍后的整数部分和小数部分
+	tmp = FMUL(FABS(val), 100);
+	tt = FFLOOR(tmp);
+	d = FLTTOINT(tt);
+	m = FLTTOINT(FMUL(FSUB(tmp, tt), 100000));
+
+	//四舍五入
+	m = (m % 10 >= 5) ? (m + 10) / 10 : m / 10;
+
+	SPRINTF(szBuf, "%d.%d", d, m);
+	return szBuf;
+}
+
 //发送定位数据
 //*EX,2100428040,MOVE,053651,A,2945.7672,N,12016.8198,E,0.00,000,180510,FBFFFFFF#
 static void CBasicLoc_UDPWrite(CBasicLoc *pme)
@@ -407,6 +432,7 @@ static void CBasicLoc_UDPWrite(CBasicLoc *pme)
 	int nIP = 0, nPort = 0;
 	char deviceID[20];
 	char location[64];
+	char szLat[10], szLon[10];
 	char date[10];
 	double	degree = 0, min = 0;
 
@@ -427,9 +453,9 @@ static void CBasicLoc_UDPWrite(CBasicLoc *pme)
 	//位置信息
 	if (FCMP_G(pGetGPSInfo->theInfo.lat, 0) && FCMP_G(pGetGPSInfo->theInfo.lon, 0))
 	{
-		degree = FLTTOINT(pGetGPSInfo->theInfo.lat);
-		min = FSUB(pGetGPSInfo->theInfo.lat, degree);
-		SPRINTF(location, "A,0000,0000,N,0000,0000,E,0.00,000");
+		FORMATFLT(szLat, pGetGPSInfo->theInfo.lat);
+		FORMATFLT(szLon, pGetGPSInfo->theInfo.lon);
+		SPRINTF(location, "A,%s,N,%s,E,0.00,000", szLat, szLon);
 	}
 	else
 	{
@@ -441,7 +467,8 @@ static void CBasicLoc_UDPWrite(CBasicLoc *pme)
 	GETJULIANDATE(secs, &julian);
 	SPRINTF(date, "%02d%02d16", julian.wDay, julian.wMonth);
 
-
+	SPRINTF(pme->m_szData, "*EX,%s,MOVE,053651,%s,%s,FBFFFFFF#", deviceID, location, date);
+	pme->m_nLen = STRLEN(pme->m_szData) + 1;
 
 	INET_ATON(pme->m_szIP, (uint32 *)&nIP);
 	nPort = HTONS(pme->m_nPort);
