@@ -80,6 +80,9 @@ static void		CBasicLoc_GetGPSInfo_Callback(CBasicLoc *pme);
 static void		CBasicLoc_Net_Timer(CBasicLoc *pme);
 static void		CBasicLoc_UDPWrite(CBasicLoc *pme);
 
+//格式化浮点 纬度:DDDMM.MMMM , 经度:DDMM, MMMMM
+static char* FORMATFLT(char* szBuf, double val);
+
 /*===============================================================================
 FUNCTION DEFINITIONS
 =============================================================================== */
@@ -109,7 +112,7 @@ void play_tts(CBasicLoc *pme, AECHAR* wtxt)
 		DBGPRINTF("Error Input TTS text");
 	}
 
-	len = WSTRLEN(wtxt) + 1;
+	len = WSTRLEN(wtxt);
 	DBGPRINTF("play_tts len:%d", len);
 	if (!ISHELL_SendEvent(pme->a.m_pIShell, AEECLSID_ZTEAPPCORE, EVT_POC, len, (uint32)(wtxt))) {
 		DBGPRINTF("PlayTTS ISHELL_SendEvent EVT_POC failure");
@@ -130,6 +133,15 @@ static boolean CBasicLoc_InitAppData(CBasicLoc *pme)
 	CALLBACK_Init(&pme->m_cbNetTimer, CBasicLoc_Net_Timer, pme);
 	ISHELL_SetTimerEx(pme->a.m_pIShell, 8000, &pme->m_cbNetTimer);
 
+	{
+		char szBuf[64];
+
+		DBGPRINTF("@@114.123456 %s", FORMATFLT(szBuf, 114.123456));
+		DBGPRINTF("@@-27.654321 %s", FORMATFLT(szBuf, -27.654321));
+		DBGPRINTF("@@-0.123456 %s", FORMATFLT(szBuf, -0.123456));
+		DBGPRINTF("@@1.654321 %s", FORMATFLT(szBuf, 1.654321));
+
+	}
 	return TRUE;
 }
 
@@ -403,19 +415,27 @@ static void CBasicLoc_Net_Timer(CBasicLoc *pme)
 }
 
 //格式化浮点 纬度:DDDMM.MMMM , 经度:DDMM, MMMMM
-char* FORMATFLT(char* szBuf, double val)
+static char* FORMATFLT(char* szBuf, double val)
 {
-	double tmp = 0, tt = 0;
+	double tmp = 0, tt = 0, min = 0;
 	int d = 0, m = 0;
 
 	if (szBuf == NULL)
 		return NULL;
 
+	tmp = FABS(val);
+	tt = FFLOOR(tmp);
+	min = FSUB(tmp, tt);
+	min = FMUL(min, 60.0);
+	min = FDIV(min, 100.0);
+	tmp = tt + min;
+
 	//取出放大100倍后的整数部分和小数部分
-	tmp = FMUL(FABS(val), 100);
+	//tmp = FMUL(FABS(val), 100);
+	tmp = FMUL(tmp, 100);
 	tt = FFLOOR(tmp);
 	d = FLTTOINT(tt);
-	m = FLTTOINT(FMUL(FSUB(tmp, tt), 100000));
+	m = FLTTOINT(FMUL(FSUB(tmp, tt), 100000.0));
 
 	//四舍五入
 	m = (m % 10 >= 5) ? (m + 10) / 10 : m / 10;
@@ -450,16 +470,26 @@ static void CBasicLoc_UDPWrite(CBasicLoc *pme)
 	//设备编号
 	STRCPY(deviceID, "A000003841A7190");
 
+	//FOR TEST
+#if 0
+	//39.9091407478,116.3975900499
+	pGetGPSInfo->theInfo.lat = 39.9091407478;//38.0472833266;//38.1015619154;
+	pGetGPSInfo->theInfo.lon = 116.3975900499;//114.5117308110;//114.6364600054;
+#endif
+
+	FORMATFLT(szLat, pGetGPSInfo->theInfo.lat);
+	FORMATFLT(szLon, pGetGPSInfo->theInfo.lon);
+	DBGPRINTF("@Lat: %s", szLat);
+	DBGPRINTF("@Lon: %s", szLon);
+
 	//位置信息
 	if (FCMP_G(pGetGPSInfo->theInfo.lat, 0) && FCMP_G(pGetGPSInfo->theInfo.lon, 0))
 	{
-		FORMATFLT(szLat, pGetGPSInfo->theInfo.lat);
-		FORMATFLT(szLon, pGetGPSInfo->theInfo.lon);
 		SPRINTF(location, "A,%s,N,%s,E,0.00,000", szLat, szLon);
 	}
 	else
 	{
-		SPRINTF(location, "V,0000,0000,N,0000,0000,E,0.00,000");
+		SPRINTF(location, "V,0000.0000,N,00000.0000,E,0.00,000");
 	}
 
 	//时间
@@ -469,6 +499,8 @@ static void CBasicLoc_UDPWrite(CBasicLoc *pme)
 
 	SPRINTF(pme->m_szData, "*EX,%s,MOVE,053651,%s,%s,FBFFFFFF#", deviceID, location, date);
 	pme->m_nLen = STRLEN(pme->m_szData) + 1;
+
+	DBGPRINTF("@Report: %s", pme->m_szData);
 
 	INET_ATON(pme->m_szIP, (uint32 *)&nIP);
 	nPort = HTONS(pme->m_nPort);
