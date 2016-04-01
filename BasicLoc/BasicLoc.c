@@ -11,7 +11,12 @@ INCLUDES AND VARIABLE DEFINITIONS
 
 #include "Location.h"
 
-#define LOG_FILE_PATH	"basicloc.log"
+#ifdef AEE_SIMULATOR
+#	define LOG_FILE_PATH				"fs:/shared/basicloc.log"
+#else
+#	define LOG_FILE_PATH				"fs:/mod/basicloc/basicloc.log"
+#endif // AEE_SIMULATOR
+
 
 /*===========================================================================
 
@@ -141,7 +146,7 @@ int	log_output(IFile* file, char* szLog)
 
 	hal_walltime_string(szTime, 32);
 
-	SPRINTF(szBuffer, "%s %s", szTime, szLog);
+	SPRINTF(szBuffer, "%s %s\n", szTime, szLog);
 	IFILE_Write(file, szBuffer, STRLEN(szBuffer));
 	
 	DBGPRINTF("%s", szBuffer);
@@ -181,7 +186,7 @@ static boolean CBasicLoc_InitAppData(CBasicLoc *pme)
 		return NULL;
 	}
 
-#if 1
+#if 0
 	//Delete Old Log
 	if (AEE_SUCCESS == IFILEMGR_Test(pme->m_fm, LOG_FILE_PATH))
 	{
