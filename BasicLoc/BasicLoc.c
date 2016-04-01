@@ -4,10 +4,14 @@ INCLUDES AND VARIABLE DEFINITIONS
 #include "AEEStdLib.h"
 #include "AEEAppGen.h"        // Applet helper file
 #include "AEEWeb.h"
+#include "AEEFile.h"
+
 #include "BasicLoc.bid"		// Applet-specific header that contains class ID
 #include "nmdef.h"
 
 #include "Location.h"
+
+#define LOG_FILE_PATH	"basicloc.log"
 
 /*===========================================================================
 
@@ -64,6 +68,9 @@ typedef struct _CBasicLoc
 	char				m_szData[255];			//数据内容
 	uint16				m_nLen;					//数据长度
 
+	IFileMgr*			m_fm;
+	IFile*				m_file;
+
 }CBasicLoc;
 
 /*-------------------------------------------------------------------
@@ -83,6 +90,7 @@ static void		CBasicLoc_UDPWrite(CBasicLoc *pme);
 //格式化浮点 纬度:DDDMM.MMMM , 经度:DDMM, MMMMM
 static char* FORMATFLT(char* szBuf, double val);
 
+
 /*===============================================================================
 FUNCTION DEFINITIONS
 =============================================================================== */
@@ -97,6 +105,46 @@ void BL_FreeIF(IBase ** ppif)
 		IBASE_Release(*ppif);
 		*ppif = NULL;
 	}
+}
+
+int hal_snprintf(char* s, size_t n, const char* format, ...) {
+	int ret;
+	va_list argp;
+	va_start(argp, format);
+	ret = VSNPRINTF(s, n, format, argp);
+	va_end(argp);
+	return ret;
+}
+char* hal_walltime_string(char* buffer, size_t size) {
+	uint32 secs;
+	int len;
+	JulianType julian;
+
+
+	if (NULL == buffer || 0 == size)
+		return NULL;
+	secs = GETTIMESECONDS();
+	GETJULIANDATE(secs, &julian);
+
+	len = hal_snprintf(buffer, size, "%04d/%02d/%02d %02d:%02d:%02d", julian.wYear, julian.wMonth, julian.wDay,
+		julian.wHour, julian.wMinute, julian.wSecond);
+
+	if (len)
+		return buffer;
+	return NULL;
+}
+
+int	log_output(IFile* file, char* szLog)
+{
+	char szBuffer[1024];
+	char szTime[32];
+
+	hal_walltime_string(szTime, 32);
+
+	SPRINTF(szBuffer, "%s %s", szTime, szLog);
+	IFILE_Write(file, szBuffer, STRLEN(szBuffer));
+	
+	DBGPRINTF("%s", szBuffer);
 }
 
 /*===========================================================================
@@ -127,21 +175,50 @@ static boolean CBasicLoc_InitAppData(CBasicLoc *pme)
 
 	pGetGPSInfo->bAbort = TRUE;
 
+	//FileMgr
+	if (AEE_SUCCESS != ISHELL_CreateInstance(pme->a.m_pIShell, AEECLSID_FILEMGR, (void **)&(pme->m_fm))) {
+		DBGPRINTF("ISHELL_CreateInstance for AEECLSID_FILEMGR failed!");
+		return NULL;
+	}
+
+#if 1
+	//Delete Old Log
+	if (AEE_SUCCESS == IFILEMGR_Test(pme->m_fm, LOG_FILE_PATH))
+	{
+		IFILEMGR_Remove(pme->m_fm, LOG_FILE_PATH);
+	}
+#endif
+
+	//Open File
+	pme->m_file = IFILEMGR_OpenFile(pme->m_fm, LOG_FILE_PATH, _OFM_APPEND);
+	if (NULL == pme->m_file)
+	{
+		pme->m_file = IFILEMGR_OpenFile(pme->m_fm, LOG_FILE_PATH, _OFM_CREATE);
+		if (NULL == pme->m_file)
+		{
+			DBGPRINTF("IFILEMGR_OpenFile %s failed!", LOG_FILE_PATH);
+			return NULL;
+		}
+	}
+
+	//Callback
 	CALLBACK_Init(&pme->m_cbWatcherTimer, CBasicLoc_GetGPSInfo_Watcher, pme);
 	ISHELL_SetTimerEx(pme->a.m_pIShell, 10000, &pme->m_cbWatcherTimer);
 
 	CALLBACK_Init(&pme->m_cbNetTimer, CBasicLoc_Net_Timer, pme);
 	ISHELL_SetTimerEx(pme->a.m_pIShell, 8000, &pme->m_cbNetTimer);
 
-	{
-		char szBuf[64];
+// 	{
+// 		char szBuf[64];
+// 
+// 		DBGPRINTF("@@114.123456 %s", FORMATFLT(szBuf, 114.123456));
+// 		DBGPRINTF("@@-27.654321 %s", FORMATFLT(szBuf, -27.654321));
+// 		DBGPRINTF("@@-0.123456 %s", FORMATFLT(szBuf, -0.123456));
+// 		DBGPRINTF("@@1.654321 %s", FORMATFLT(szBuf, 1.654321));
+// 
+// 	}
 
-		DBGPRINTF("@@114.123456 %s", FORMATFLT(szBuf, 114.123456));
-		DBGPRINTF("@@-27.654321 %s", FORMATFLT(szBuf, -27.654321));
-		DBGPRINTF("@@-0.123456 %s", FORMATFLT(szBuf, -0.123456));
-		DBGPRINTF("@@1.654321 %s", FORMATFLT(szBuf, 1.654321));
 
-	}
 	return TRUE;
 }
 
@@ -159,6 +236,9 @@ static void CBasicLoc_FreeAppData(CBasicLoc *pme)
 	}
 
 	BL_RELEASEIF(pme->m_pINetMgr);
+
+	BL_RELEASEIF(pme->m_file);
+	BL_RELEASEIF(pme->m_fm);
 }
 
 int AEEClsCreateInstance(AEECLSID ClsId, IShell * pIShell, IModule * pMod, void ** ppObj)
@@ -204,7 +284,7 @@ static boolean CBasicLoc_HandleEvent(CBasicLoc * pme, AEEEvent eCode, uint16 wPa
 	switch (eCode){
 	case EVT_APP_START:
 		DBGPRINTF("EVT_APP_START");
-		play_tts(pme, L"start");
+		play_tts(pme, L"start location");
 		return(TRUE);
 
 	case EVT_APP_STOP:
@@ -220,6 +300,12 @@ static boolean CBasicLoc_HandleEvent(CBasicLoc * pme, AEEEvent eCode, uint16 wPa
 			DBGPRINTF("AVK_PTT %x", AVK_PTT_G180);
 			pme->m_gpsMode = (pme->m_gpsMode == AEEGPS_MODE_TRACK_STANDALONE) ? AEEGPS_MODE_TRACK_OPTIMAL : AEEGPS_MODE_TRACK_STANDALONE;
 			DBGPRINTF("Change gpsMode %x", pme->m_gpsMode);
+
+			if (pme->m_gpsMode == AEEGPS_MODE_TRACK_STANDALONE)
+				play_tts(pme, L"Standalone mode");
+			else
+				play_tts(pme, L"default mode");
+
 			CBasicLoc_LocStop(pme);
 			CBasicLoc_LocStart(pme);
 		}
@@ -486,10 +572,19 @@ static void CBasicLoc_UDPWrite(CBasicLoc *pme)
 	if (FCMP_G(pGetGPSInfo->theInfo.lat, 0) && FCMP_G(pGetGPSInfo->theInfo.lon, 0))
 	{
 		SPRINTF(location, "A,%s,N,%s,E,0.00,000", szLat, szLon);
+
+		play_tts(pme, L"locate success!");
 	}
 	else
 	{
 		SPRINTF(location, "V,0000.0000,N,00000.0000,E,0.00,000");
+
+		play_tts(pme, L"locate invalid!");
+	}
+
+	if (pme->m_file)
+	{
+		log_output(pme->m_file, location);
 	}
 
 	//时间
