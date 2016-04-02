@@ -13,11 +13,20 @@ INCLUDES AND VARIABLE DEFINITIONS
 
 #ifdef AEE_SIMULATOR
 #	define LOG_FILE_PATH				"fs:/shared/basicloc.log"
+#	define CONFIG_PATH					"fs:/shared/config.txt"
 #else
 #	define LOG_FILE_PATH				"fs:/mod/basicloc/basicloc.log"
+#	define CONFIG_PATH					"fs:/mod/basicloc/config.txt"
 #endif // AEE_SIMULATOR
 
+/************************************************************************/
+/* CONFIG ITEM                                                          */
+/************************************************************************/
+#define CONFIG_SVR_IP		"ip="		//服务器IP
+#define CONFIG_SVR_PORT		"port="		//服务器端口
+#define CONFIG_INTERVAL		"interval="	//定位上传间隔
 
+#define DEFAULT_INTERVAL	30			//默认30秒间隔
 /*===========================================================================
 
 FOR ZTE G180 MACROS DECLARATIONS
@@ -50,6 +59,8 @@ FOR ZTE G180 MACROS DECLARATIONS
 #define WATCHER_TIMER	30
 #define NET_TIMER		20
 #endif
+
+
 #define BL_RELEASEIF(p) BL_FreeIF((IBase **)&(p))
 
 typedef struct _CBasicLoc
@@ -71,6 +82,8 @@ typedef struct _CBasicLoc
 	//Server Config
 	char				m_szIP[20];				//服务器IP
 	uint16				m_nPort;				//服务器端口
+	uint16				m_interval;				//上传间隔
+
 	char				m_szData[255];			//数据内容
 	uint16				m_nLen;					//数据长度
 
@@ -99,6 +112,9 @@ static void		CBasicLoc_UDPWrite(CBasicLoc *pme);
 
 //Get MEID
 static int		CBasicLoc_GetMeid(CBasicLoc *pme);
+
+//Load Config
+static uint32	LoadConfig(CBasicLoc *pme);
 
 //格式化浮点 纬度:DDDMM.MMMM , 经度:DDMM, MMMMM
 static char* FORMATFLT(char* szBuf, double val);
@@ -158,6 +174,8 @@ int	log_output(IFile* file, char* szLog)
 	IFILE_Write(file, szBuffer, STRLEN(szBuffer));
 	
 	DBGPRINTF("%s", szBuffer);
+
+	return 0;
 }
 
 /*===========================================================================
@@ -213,6 +231,14 @@ static boolean CBasicLoc_InitAppData(CBasicLoc *pme)
 	pme->m_gpsMode = AEEGPS_MODE_TRACK_STANDALONE;
 
 	pGetGPSInfo->bAbort = TRUE;
+
+	//Load Config
+	if (SUCCESS != LoadConfig(pme))
+	{
+		DBGPRINTF("Please Config Server info!");
+		play_tts(pme, L"Please Configure Server Information");
+		return NULL;
+	}
 
 	//FileMgr
 	if (AEE_SUCCESS != ISHELL_CreateInstance(pme->a.m_pIShell, AEECLSID_FILEMGR, (void **)&(pme->m_fm))) {
@@ -561,11 +587,17 @@ static void CBasicLoc_Net_Timer(CBasicLoc *pme)
 			//STRCPY(pme->m_szIP, "119.254.211.165");
 			//pme->m_nPort = 10061;
 
-			STRCPY(pme->m_szIP, "60.195.250.128");
-			pme->m_nPort = 6767;
+			if (STRLEN(pme->m_szIP) == 0 || pme->m_nPort == 0)
+			{
+				play_tts(pme, L"Please Configure Server Infomation");
+				DBGPRINTF("Please Configure Server Infomation");
+			}
 
-			STRCPY(pme->m_szData, "THIS IS TEST WORD.");
-			pme->m_nLen = STRLEN(pme->m_szData) + 1;
+			//STRCPY(pme->m_szIP, "60.195.250.128");
+			//pme->m_nPort = 6767;
+
+			//STRCPY(pme->m_szData, "THIS IS TEST WORD.");
+			//pme->m_nLen = STRLEN(pme->m_szData) + 1;
 
 		}
 	}
@@ -613,7 +645,6 @@ static void CBasicLoc_UDPWrite(CBasicLoc *pme)
 	char location[64];
 	char szLat[10], szLon[10];
 	char date[10];
-	double	degree = 0, min = 0;
 
 	JulianType julian;
 	uint32 secs = 0;
@@ -700,4 +731,165 @@ static void CBasicLoc_UDPWrite(CBasicLoc *pme)
 		//MEMSET(pApp->m_pszMsg, 0, pApp->m_nDataLength);
 		//Echoer_UDPRead(pApp);
 	}
+}
+
+
+/************************************************************************/
+/* Get Server Configure                                                                     */
+/************************************************************************/
+
+static int DistToSemi(const char * pszStr)
+{
+	int nCount = 0;
+	if (!pszStr)
+		return -1;
+
+	while (*pszStr != 0) {
+		if (*pszStr == ';' || (*pszStr != '.' && (*pszStr < 0x30 || *pszStr > 0x39))) {
+			return nCount;
+		}
+		else {
+			nCount++;
+			pszStr++;
+		}
+	}
+	return -1;
+}
+
+int TrimSpace(char *inbuf, char *outbuf)
+{
+	char *tmpBuf = inbuf;
+	while (*tmpBuf != '\0')
+	{
+		if ((*tmpBuf) != ' '){
+			*outbuf++ = *tmpBuf;
+		}
+		tmpBuf++;
+	}
+	*outbuf = '\0';
+	return 0;
+}
+
+/************************************************************************/
+/* 加载配置文件，读取服务器及上传配置                                   */
+/************************************************************************/
+static uint32 LoadConfig(CBasicLoc *pme)
+{
+	IFileMgr	*pIFileMgr = NULL;
+	IFile		*pIFile = NULL;
+	IShell		*pIShell = NULL;
+
+	char    *pszBufOrg = NULL;
+	char    *pszBuf = NULL;
+	char    *pszTok = NULL;
+	char    *pszDelimiter = ";";
+	int32	nResult = 0;
+	FileInfo	fiInfo;
+	
+	pIShell = pme->a.m_pIShell;
+
+	// Create the instance of IFileMgr
+	nResult = ISHELL_CreateInstance(pIShell, AEECLSID_FILEMGR, (void**)&pIFileMgr);
+	if (SUCCESS != nResult) {
+		return nResult;
+	}
+
+	nResult = IFILEMGR_Test(pIFileMgr, CONFIG_PATH);
+	if (nResult != SUCCESS)
+	{
+		DBGPRINTF("CONFIG NOT EXIST!");
+		IFILEMGR_Release(pIFileMgr);
+		return SUCCESS;
+	}
+
+	pIFile = IFILEMGR_OpenFile(pIFileMgr, CONFIG_PATH, _OFM_READWRITE);
+	if (!pIFile) {
+		DBGPRINTF("Open Configure File Failed! %s", CONFIG_PATH);
+		IFILEMGR_Release(pIFileMgr);
+	}
+
+	if (SUCCESS != IFILE_GetInfo(pIFile, &fiInfo)) {
+		IFILE_Release(pIFile);
+		IFILEMGR_Release(pIFileMgr);
+		return EFAILED;
+	}
+
+	if (fiInfo.dwSize == 0) {
+		IFILE_Release(pIFile);
+		IFILEMGR_Release(pIFileMgr);
+		return EFAILED;
+	}
+
+	// Allocate enough memory to read the full text into memory
+	pszBufOrg = MALLOC(fiInfo.dwSize);
+	pszBuf = MALLOC(fiInfo.dwSize);
+
+	nResult = IFILE_Read(pIFile, pszBufOrg, fiInfo.dwSize);
+	if ((uint32)nResult < fiInfo.dwSize) {
+		FREE(pszBuf);
+		return EFAILED;
+	}
+
+	TrimSpace(pszBufOrg, pszBuf);
+	FREE(pszBufOrg);
+
+	//server port
+	pszTok = STRSTR(pszBuf, CONFIG_SVR_PORT);
+	if (pszTok) {
+		pszTok = pszTok + STRLEN(CONFIG_SVR_PORT);
+		pme->m_nPort = STRTOUL(pszTok, &pszDelimiter, 10);
+	}
+	else
+	{
+		FREE(pszBuf);
+		IFILE_Release(pIFile);
+		IFILEMGR_Release(pIFileMgr);
+		return EFAILED;
+	}
+
+	//server ip
+	pszTok = STRSTR(pszBuf, CONFIG_SVR_IP);
+	if (pszTok) {
+		pszTok = pszTok + STRLEN(CONFIG_SVR_IP);
+		nResult = DistToSemi(pszTok);
+		if (nResult < 7)	//IP至少为0.0.0.0
+		{
+			DBGPRINTF("Not Found IP");
+
+			FREE(pszBuf);
+			IFILE_Release(pIFile);
+			IFILEMGR_Release(pIFileMgr);
+			return EFAILED;
+		}
+		else
+		{
+			STRNCPY(pme->m_szIP, pszTok, nResult);
+		}
+		pme->m_szIP[nResult] = 0;
+	}
+	else
+	{
+		FREE(pszBuf);
+		IFILE_Release(pIFile);
+		IFILEMGR_Release(pIFileMgr);
+		return EFAILED;
+	}
+
+	//interval
+	pszTok = STRSTR(pszBuf, CONFIG_INTERVAL);
+	if (pszTok) {
+		pszTok = pszTok + STRLEN(CONFIG_INTERVAL);
+		pme->m_interval = STRTOUL(pszTok, &pszDelimiter, 10);
+	}
+	
+	if (pme->m_interval < DEFAULT_INTERVAL)
+	{
+		pme->m_interval = DEFAULT_INTERVAL;
+	}
+
+	FREE(pszBuf);
+	IFILE_Release(pIFile);
+	IFILEMGR_Release(pIFileMgr);
+
+	return SUCCESS;
 }
