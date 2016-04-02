@@ -68,13 +68,18 @@ typedef struct _CBasicLoc
 	ISocket *			m_pISocket;             // Pointer to socket
 	uint32				m_nIdle;				//空闲状态
 	
+	//Server Config
 	char				m_szIP[20];				//服务器IP
 	uint16				m_nPort;				//服务器端口
 	char				m_szData[255];			//数据内容
 	uint16				m_nLen;					//数据长度
 
+	//File 
 	IFileMgr*			m_fm;
 	IFile*				m_file;
+
+	//Device
+	char				m_meid[32];				//设备MEID
 
 }CBasicLoc;
 
@@ -91,6 +96,9 @@ static void		CBasicLoc_GetGPSInfo_Watcher(CBasicLoc *pme);
 static void		CBasicLoc_GetGPSInfo_Callback(CBasicLoc *pme);
 static void		CBasicLoc_Net_Timer(CBasicLoc *pme);
 static void		CBasicLoc_UDPWrite(CBasicLoc *pme);
+
+//Get MEID
+static int		CBasicLoc_GetMeid(CBasicLoc *pme);
 
 //格式化浮点 纬度:DDDMM.MMMM , 经度:DDMM, MMMMM
 static char* FORMATFLT(char* szBuf, double val);
@@ -172,11 +180,37 @@ void play_tts(CBasicLoc *pme, AECHAR* wtxt)
 	}
 }
 
+//Get MEID
+static int CBasicLoc_GetMeid(CBasicLoc *pme)
+{
+	char szBuf[64];
+	int size = 0;
+	int err = 0;
+
+	MEMSET(pme->m_meid, 0, 32);
+
+	size = 32;
+	err = ISHELL_GetDeviceInfoEx(pme->a.m_pIShell, AEE_DEVICEITEM_MEIDS, pme->m_meid, &size);
+	DBGPRINTF("meid: %s size:%d err:%d", pme->m_meid, size, err);
+	if (err == SUCCESS)
+	{
+		SPRINTF(szBuf, "Get MEID: %s\n", pme->m_meid);
+		log_output(pme->m_file, szBuf);
+	}
+	else
+	{
+		SPRINTF(szBuf, "Get MEID Failed! ERR:%d", err);
+		log_output(pme->m_file, szBuf);
+	}
+
+	return err;
+}
+
 static boolean CBasicLoc_InitAppData(CBasicLoc *pme)
 {
 	GetGPSInfo *pGetGPSInfo = &pme->m_gpsInfo;
 
-	pme->m_gpsMode = AEEGPS_MODE_TRACK_OPTIMAL;
+	pme->m_gpsMode = AEEGPS_MODE_TRACK_STANDALONE;
 
 	pGetGPSInfo->bAbort = TRUE;
 
@@ -206,12 +240,17 @@ static boolean CBasicLoc_InitAppData(CBasicLoc *pme)
 		}
 	}
 
+	//Get MEID
+	CBasicLoc_GetMeid(pme);
+
 	//Callback
 	CALLBACK_Init(&pme->m_cbWatcherTimer, CBasicLoc_GetGPSInfo_Watcher, pme);
 	ISHELL_SetTimerEx(pme->a.m_pIShell, 10000, &pme->m_cbWatcherTimer);
 
 	CALLBACK_Init(&pme->m_cbNetTimer, CBasicLoc_Net_Timer, pme);
 	ISHELL_SetTimerEx(pme->a.m_pIShell, 8000, &pme->m_cbNetTimer);
+
+	//ONLY FOR TEST
 
 // 	{
 // 		char szBuf[64];
@@ -220,6 +259,34 @@ static boolean CBasicLoc_InitAppData(CBasicLoc *pme)
 // 		DBGPRINTF("@@-27.654321 %s", FORMATFLT(szBuf, -27.654321));
 // 		DBGPRINTF("@@-0.123456 %s", FORMATFLT(szBuf, -0.123456));
 // 		DBGPRINTF("@@1.654321 %s", FORMATFLT(szBuf, 1.654321));
+// 
+// 	}
+
+	//get devices id
+// 	{
+// 		char szBuf[128];
+// 		char esn[64], meid[64], imsi[64], imei[64];
+// 		int size = 0;
+// 		int err = 0;
+// 
+// 		size = 32;
+// 		err = ISHELL_GetDeviceInfoEx(pme->a.m_pIShell, AEE_DEVICEITEM_MEIDS, meid, &size);
+// 		DBGPRINTF("meid: %s size:%d err:%d", meid, size, err);
+// 
+// 		size = 32;
+// 		err = ISHELL_GetDeviceInfoEx(pme->a.m_pIShell, AEE_DEVICEITEM_ESN, esn, &size);
+// 		DBGPRINTF("esn: %s size:%d err:%d", esn, size, err);
+// 
+// 		size = 32;
+// 		err = ISHELL_GetDeviceInfoEx(pme->a.m_pIShell, AEE_DEVICEITEM_MOBILE_ID, imsi, &size);
+// 		DBGPRINTF("imsi: %s size:%d err:%d", imsi, size, err);
+// 
+// 		size = 32;
+// 		err = ISHELL_GetDeviceInfoEx(pme->a.m_pIShell, AEE_DEVICEITEM_IMEI, imei, &size);
+// 		DBGPRINTF("imei: %s size:%d err:%d", imei, size, err);
+// 
+// 		SPRINTF(szBuf, "device_id esn:%s meid:%s imsi:%s imei:%s", esn, meid, imsi, imei);
+// 		log_output(pme->m_file, szBuf);
 // 
 // 	}
 
@@ -289,7 +356,6 @@ static boolean CBasicLoc_HandleEvent(CBasicLoc * pme, AEEEvent eCode, uint16 wPa
 	switch (eCode){
 	case EVT_APP_START:
 		DBGPRINTF("EVT_APP_START");
-		play_tts(pme, L"start location");
 		return(TRUE);
 
 	case EVT_APP_STOP:
@@ -356,7 +422,7 @@ static void CBasicLoc_LocStart(CBasicLoc *pme)
 	pGetGPSInfo->theInfo.gpsConfig.optim = 1;
 	pGetGPSInfo->theInfo.gpsConfig.mode = pme->m_gpsMode;
 	pGetGPSInfo->theInfo.gpsConfig.nFixes = 0;
-	pGetGPSInfo->theInfo.gpsConfig.nInterval = 0;
+	pGetGPSInfo->theInfo.gpsConfig.nInterval = 30;
 
 	if (ISHELL_CreateInstance(pme->a.m_pIShell, AEECLSID_POSDET, (void **)&pGetGPSInfo->pPosDet) == SUCCESS) {
 
@@ -448,6 +514,8 @@ static void CBasicLoc_GetGPSInfo_Watcher(CBasicLoc *pme)
 	//2 尝试3分钟未定位成功
 	if (pGetGPSInfo->wIdleCount > WATCHER_TIMER || pGetGPSInfo->wProgress > 60 * 3)
 	{
+		//play_tts(pme, L"restart location");
+
 		DBGPRINTF("@Where GetGPS CBasicLoc_LocStart");
 		CBasicLoc_LocStop(pme);
 		CBasicLoc_LocStart(pme);
@@ -519,7 +587,7 @@ static char* FORMATFLT(char* szBuf, double val)
 	min = FSUB(tmp, tt);
 	min = FMUL(min, 60.0);
 	min = FDIV(min, 100.0);
-	tmp = tt + min;
+	tmp = FADD(tt, min);
 
 	//取出放大100倍后的整数部分和小数部分
 	//tmp = FMUL(FABS(val), 100);
@@ -558,8 +626,19 @@ static void CBasicLoc_UDPWrite(CBasicLoc *pme)
 
 	/* 填充协议 */
 	
-	//设备编号
-	STRCPY(deviceID, "A000003841A7190");
+	//如果设备编号不存在,尝试重新读取一次
+	if (STRLEN(pme->m_meid) == 0)
+	{
+		//Get MEID
+		if (SUCCESS != CBasicLoc_GetMeid(pme))
+		{
+			play_tts(pme, L"NO MEID!");
+			return;
+		}
+	}
+	
+	//STRCPY(deviceID, "A000003841A7190");
+	STRCPY(deviceID, pme->m_meid);
 
 	//FOR TEST
 #if 0
