@@ -11,6 +11,7 @@ INCLUDES AND VARIABLE DEFINITIONS
 
 #include "Location.h"
 
+
 #ifdef AEE_SIMULATOR
 #	define LOG_FILE_PATH				"fs:/shared/basicloc.log"
 #	define CONFIG_PATH					"fs:/shared/config.txt"
@@ -168,6 +169,9 @@ int	log_output(IFile* file, char* szLog)
 	char szBuffer[1024];
 	char szTime[32];
 
+	if (file == NULL)
+		return  -1;
+
 	hal_walltime_string(szTime, 32);
 
 	SPRINTF(szBuffer, "%s %s\n", szTime, szLog);
@@ -232,14 +236,6 @@ static boolean CBasicLoc_InitAppData(CBasicLoc *pme)
 
 	pGetGPSInfo->bAbort = TRUE;
 
-	//Load Config
-	if (SUCCESS != LoadConfig(pme))
-	{
-		DBGPRINTF("Please Config Server info!");
-		play_tts(pme, L"Please Configure Server Information");
-		return NULL;
-	}
-
 	//FileMgr
 	if (AEE_SUCCESS != ISHELL_CreateInstance(pme->a.m_pIShell, AEECLSID_FILEMGR, (void **)&(pme->m_fm))) {
 		DBGPRINTF("ISHELL_CreateInstance for AEECLSID_FILEMGR failed!");
@@ -268,6 +264,15 @@ static boolean CBasicLoc_InitAppData(CBasicLoc *pme)
 
 	//Get MEID
 	CBasicLoc_GetMeid(pme);
+
+	//Load Config
+	if (SUCCESS != LoadConfig(pme))
+	{
+		DBGPRINTF("Please Config Server info!");
+		log_output(pme->m_file, "Please Configure Server Information");
+		play_tts(pme, L"Please Configure Server Information");
+		
+	}
 
 	//Callback
 	CALLBACK_Init(&pme->m_cbWatcherTimer, CBasicLoc_GetGPSInfo_Watcher, pme);
@@ -587,11 +592,6 @@ static void CBasicLoc_Net_Timer(CBasicLoc *pme)
 			//STRCPY(pme->m_szIP, "119.254.211.165");
 			//pme->m_nPort = 10061;
 
-			if (STRLEN(pme->m_szIP) == 0 || pme->m_nPort == 0)
-			{
-				play_tts(pme, L"Please Configure Server Infomation");
-				DBGPRINTF("Please Configure Server Infomation");
-			}
 
 			//STRCPY(pme->m_szIP, "60.195.250.128");
 			//pme->m_nPort = 6767;
@@ -655,7 +655,12 @@ static void CBasicLoc_UDPWrite(CBasicLoc *pme)
 		return;
 	}
 
-	/* 填充协议 */
+	if (STRLEN(pme->m_szIP) == 0 || pme->m_nPort == 0)
+	{
+		play_tts(pme, L"Please Configure Server Infomation");
+		DBGPRINTF("Please Configure Server Infomation");
+		return;
+	}
 	
 	//如果设备编号不存在,尝试重新读取一次
 	if (STRLEN(pme->m_meid) == 0)
@@ -667,7 +672,8 @@ static void CBasicLoc_UDPWrite(CBasicLoc *pme)
 			return;
 		}
 	}
-	
+
+	/* 填充协议 */
 	//STRCPY(deviceID, "A000003841A7190");
 	STRCPY(deviceID, pme->m_meid);
 
