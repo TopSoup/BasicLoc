@@ -54,8 +54,8 @@ FOR ZTE G180 MACROS DECLARATIONS
 /* TIMER CONTROL                                                        */
 /************************************************************************/
 #ifdef AEE_SIMULATOR
-#define WATCHER_TIMER	15
-#define NET_TIMER		10
+#define WATCHER_TIMER	5
+#define NET_TIMER		5
 #else
 #define WATCHER_TIMER	30
 #define NET_TIMER		20
@@ -187,7 +187,7 @@ This function for play tts.
 ===========================================================================*/
 void play_tts(CBasicLoc *pme, AECHAR* wtxt)
 {
-	int len = 0;
+	uint16 len = 0;
 
 	DBGPRINTF("play_tts in");
 	if (wtxt == NULL)
@@ -239,7 +239,7 @@ static boolean CBasicLoc_InitAppData(CBasicLoc *pme)
 	//FileMgr
 	if (AEE_SUCCESS != ISHELL_CreateInstance(pme->a.m_pIShell, AEECLSID_FILEMGR, (void **)&(pme->m_fm))) {
 		DBGPRINTF("ISHELL_CreateInstance for AEECLSID_FILEMGR failed!");
-		return NULL;
+		return FALSE;
 	}
 
 #if 0
@@ -258,7 +258,7 @@ static boolean CBasicLoc_InitAppData(CBasicLoc *pme)
 		if (NULL == pme->m_file)
 		{
 			DBGPRINTF("IFILEMGR_OpenFile %s failed!", LOG_FILE_PATH);
-			return NULL;
+			return FALSE;
 		}
 	}
 
@@ -458,12 +458,17 @@ static void CBasicLoc_LocStart(CBasicLoc *pme)
 
 	ZEROAT(pGetGPSInfo);
 
+#ifndef AEE_SIMULATOR
+	if (pme->m_interval < 30)
+		pme->m_interval = 30;
+#endif
+	
 	pGetGPSInfo->theInfo.gpsConfig.server.svrType = AEEGPS_SERVER_DEFAULT;
 	pGetGPSInfo->theInfo.gpsConfig.qos = 16;
 	pGetGPSInfo->theInfo.gpsConfig.optim = 1;
 	pGetGPSInfo->theInfo.gpsConfig.mode = pme->m_gpsMode;
 	pGetGPSInfo->theInfo.gpsConfig.nFixes = 0;
-	pGetGPSInfo->theInfo.gpsConfig.nInterval = 30;
+	pGetGPSInfo->theInfo.gpsConfig.nInterval = pme->m_interval;
 
 	if (ISHELL_CreateInstance(pme->a.m_pIShell, AEECLSID_POSDET, (void **)&pGetGPSInfo->pPosDet) == SUCCESS) {
 
@@ -620,28 +625,77 @@ static char* FORMATFLT(char* szBuf, double val)
 {
 	double tmp = 0, tt = 0, min = 0;
 	int d = 0, m = 0;
+	int zero_pad = 0;
+	char szZero[16];
 
 	if (szBuf == NULL)
 		return NULL;
 
 	tmp = FABS(val);
-	tt = FFLOOR(tmp);
-	min = FSUB(tmp, tt);
-	min = FMUL(min, 60.0);
-	min = FDIV(min, 100.0);
-	tmp = FADD(tt, min);
+	if (FCMP_GE(tmp, 0.000001))
+	{
+		tt = FFLOOR(tmp);
+		min = FSUB(tmp, tt);
+		min = FMUL(min, 60.0);
+		min = FDIV(min, 100.0);
+		tmp = FADD(tt, min);
 
-	//取出放大100倍后的整数部分和小数部分
-	//tmp = FMUL(FABS(val), 100);
-	tmp = FMUL(tmp, 100);
-	tt = FFLOOR(tmp);
-	d = FLTTOINT(tt);
-	m = FLTTOINT(FMUL(FSUB(tmp, tt), 100000.0));
+		//取出放大100倍后的整数部分和小数部分
+		//tmp = FMUL(FABS(val), 100);
+		tmp = FMUL(tmp, 100);
+		tt = FFLOOR(tmp);
+		d = FLTTOINT(tt);
+		m = FLTTOINT(FMUL(FSUB(tmp, tt), 100000.0));
 
-	//四舍五入
-	m = (m % 10 >= 5) ? (m + 10) / 10 : m / 10;
+		//四舍五入
+		m = (m % 10 >= 5) ? (m + 10) / 10 : m / 10;
 
-	SPRINTF(szBuf, "%d.%d", d, m);
+		if (m > 0)
+		{
+			if (m < 100000)		//0.012345
+			{
+				zero_pad++;
+			}
+			
+			if (m < 10000)	//0.001234
+			{
+				zero_pad++;
+			}
+			
+			if (m < 1000)	//0.000123
+			{
+				zero_pad++;
+			}
+			
+			if (m < 100)	//0.000012
+			{
+				zero_pad++;
+			}
+			
+			if (m < 10)	//0.000001
+			{
+				zero_pad++;
+			}
+			
+			//补充后面的0
+			if (zero_pad > 0)
+			{
+				STRNCPY(szZero, "000000", zero_pad);
+				szZero[zero_pad] = 0;
+			}
+		}
+	}
+	else
+	{
+			d = 0;
+			m = 0;
+	}
+
+	if (zero_pad > 0)
+		SPRINTF(szBuf, "%d.%s%d", d, szZero, m);
+	else
+		SPRINTF(szBuf, "%d.%d", d, m);
+
 	return szBuf;
 }
 
@@ -650,11 +704,12 @@ static char* FORMATFLT(char* szBuf, double val)
 static void CBasicLoc_UDPWrite(CBasicLoc *pme)
 {
 	int nErr;
-	int nIP = 0, nPort = 0;
+	int32 nIP = 0;
+	int16 nPort = 0;
 	char deviceID[20];
 	char location[64];
-	char szLat[10], szLon[10];
-	char date[10];
+	char szLat[32], szLon[32];
+	char date[16];
 
 	JulianType julian;
 	uint32 secs = 0;
@@ -675,12 +730,16 @@ static void CBasicLoc_UDPWrite(CBasicLoc *pme)
 	//如果设备编号不存在,尝试重新读取一次
 	if (STRLEN(pme->m_meid) == 0)
 	{
+#ifdef AEE_SIMULATOR
+		STRCPY(pme->m_meid, "A000003841A719");
+#else
 		//Get MEID
 		if (SUCCESS != CBasicLoc_GetMeid(pme))
 		{
 			play_tts(pme, L"NO MEID!");
 			return;
 		}
+#endif
 	}
 
 	/* 填充协议 */
@@ -688,10 +747,11 @@ static void CBasicLoc_UDPWrite(CBasicLoc *pme)
 	STRCPY(deviceID, pme->m_meid);
 
 	//FOR TEST
-#if 0
+#if 1
 	//39.9091407478,116.3975900499
-	pGetGPSInfo->theInfo.lat = 39.9091407478;//38.0472833266;//38.1015619154;
-	pGetGPSInfo->theInfo.lon = 116.3975900499;//114.5117308110;//114.6364600054;
+	//39.9151600000,116.4039570000
+	pGetGPSInfo->theInfo.lat = 39.9151600000;//38.0472833266;//38.1015619154;
+	pGetGPSInfo->theInfo.lon = 116.4039570000;//114.5117308110;//114.6364600054;
 #endif
 
 	FORMATFLT(szLat, pGetGPSInfo->theInfo.lat);
@@ -731,7 +791,7 @@ static void CBasicLoc_UDPWrite(CBasicLoc *pme)
 	INET_ATON(pme->m_szIP, (uint32 *)&nIP);
 	nPort = HTONS(pme->m_nPort);
 
-	nErr = ISOCKET_SendTo(pme->m_pISocket, pme->m_szData, pme->m_nLen, 0, nIP, nPort);
+	nErr = ISOCKET_SendTo(pme->m_pISocket, (byte *)pme->m_szData, pme->m_nLen, 0, nIP, nPort);
 
 	if (nErr == AEE_NET_WOULDBLOCK) {
 		DBGPRINTF("** sending...\n");
@@ -853,7 +913,7 @@ static uint32 LoadConfig(CBasicLoc *pme)
 	pszTok = STRSTR(pszBuf, CONFIG_SVR_PORT);
 	if (pszTok) {
 		pszTok = pszTok + STRLEN(CONFIG_SVR_PORT);
-		pme->m_nPort = STRTOUL(pszTok, &pszDelimiter, 10);
+		pme->m_nPort = (uint16)STRTOUL(pszTok, &pszDelimiter, 10);
 	}
 	else
 	{
@@ -895,7 +955,7 @@ static uint32 LoadConfig(CBasicLoc *pme)
 	pszTok = STRSTR(pszBuf, CONFIG_INTERVAL);
 	if (pszTok) {
 		pszTok = pszTok + STRLEN(CONFIG_INTERVAL);
-		pme->m_interval = STRTOUL(pszTok, &pszDelimiter, 10);
+		pme->m_interval = (uint16)STRTOUL(pszTok, &pszDelimiter, 10);
 	}
 	
 	if (pme->m_interval < DEFAULT_INTERVAL)
