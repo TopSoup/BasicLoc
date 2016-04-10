@@ -458,11 +458,6 @@ static void CBasicLoc_LocStart(CBasicLoc *pme)
 
 	ZEROAT(pGetGPSInfo);
 
-#ifndef AEE_SIMULATOR
-	if (pme->m_interval < 30)
-		pme->m_interval = 30;
-#endif
-	
 	pGetGPSInfo->theInfo.gpsConfig.server.svrType = AEEGPS_SERVER_DEFAULT;
 	pGetGPSInfo->theInfo.gpsConfig.qos = 16;
 	pGetGPSInfo->theInfo.gpsConfig.optim = 1;
@@ -651,28 +646,18 @@ static char* FORMATFLT(char* szBuf, double val)
 		m = (m % 10 >= 5) ? (m + 10) / 10 : m / 10;
 
 		if (m > 0)
-		{
-			if (m < 100000)		//0.012345
+		{	
+			if (m < 1000)	//0.0123
 			{
 				zero_pad++;
 			}
 			
-			if (m < 10000)	//0.001234
+			if (m < 100)	//0.0012
 			{
 				zero_pad++;
 			}
 			
-			if (m < 1000)	//0.000123
-			{
-				zero_pad++;
-			}
-			
-			if (m < 100)	//0.000012
-			{
-				zero_pad++;
-			}
-			
-			if (m < 10)	//0.000001
+			if (m < 10)		//0.0001
 			{
 				zero_pad++;
 			}
@@ -680,7 +665,7 @@ static char* FORMATFLT(char* szBuf, double val)
 			//²¹³äºóÃæµÄ0
 			if (zero_pad > 0)
 			{
-				STRNCPY(szZero, "000000", zero_pad);
+				STRNCPY(szZero, "0000", zero_pad);
 				szZero[zero_pad] = 0;
 			}
 		}
@@ -747,11 +732,12 @@ static void CBasicLoc_UDPWrite(CBasicLoc *pme)
 	STRCPY(deviceID, pme->m_meid);
 
 	//FOR TEST
-#if 1
+#if 0
 	//39.9091407478,116.3975900499
 	//39.9151600000,116.4039570000
-	pGetGPSInfo->theInfo.lat = 39.9151600000;//38.0472833266;//38.1015619154;
-	pGetGPSInfo->theInfo.lon = 116.4039570000;//114.5117308110;//114.6364600054;
+	//38.0428043266,114.5143068110
+	pGetGPSInfo->theInfo.lat = 38.0428043266;//39.9151600000;//38.0472833266;//38.1015619154;
+	pGetGPSInfo->theInfo.lon = 114.5143068110;//116.4039570000;//114.5117308110;//114.6364600054;
 #endif
 
 	FORMATFLT(szLat, pGetGPSInfo->theInfo.lat);
@@ -957,12 +943,12 @@ static uint32 LoadConfig(CBasicLoc *pme)
 		pszTok = pszTok + STRLEN(CONFIG_INTERVAL);
 		pme->m_interval = (uint16)STRTOUL(pszTok, &pszDelimiter, 10);
 	}
-	
+#ifndef AEE_SIMULATOR
 	if (pme->m_interval < DEFAULT_INTERVAL)
 	{
 		pme->m_interval = DEFAULT_INTERVAL;
 	}
-
+#endif
 	FREE(pszBuf);
 	IFILE_Release(pIFile);
 	IFILEMGR_Release(pIFileMgr);
