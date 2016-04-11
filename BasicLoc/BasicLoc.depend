@@ -1,0 +1,310 @@
+# depslib dependency file v1.0
+1460276174 source:d:\workspace\basicloc\basicloc\aeeappgen.c
+	"AEE.h"
+	"AEEShell.h"
+	"AEEStdLib.h"
+	"AEEAppGen.h"
+	"AEEModGen.h"
+	"nmdef.h"
+
+1460276174 source:d:\workspace\basicloc\basicloc\aeemodgen.c
+	"AEEHeap.h"
+	"AEEStdLib.h"
+	"AEEModGen.h"
+	"AEEAppGen.h"
+	"nmdef.h"
+
+1432777008 d:\brew\sdk\sdk\inc\aee.h
+	"AEEGroupIDs.h"
+	"AEEError.h"
+	"AEEComdef.h"
+	"../../inc/AEEEvent.h"
+	"../../inc/AEECallback.h"
+	"../../inc/AEEDateTime.h"
+	"../../inc/AEERect.h"
+	"AEEInterface.h"
+	"../../inc/AEEIImage.h"
+	"../../inc/AEEIBase.h"
+	"../../inc/AEEIApplet.h"
+	"AEEQueryInterface.h"
+	"../../inc/AEEIAStream.h"
+	"AEE_static.h"
+
+1197982866 d:\brew\sdk\sdk\inc\aeegroupids.h
+	"AEEClassIDs.h"
+
+1432829502 d:\brew\sdk\sdk\inc\aeeclassids.h
+	"AEECLSID_FILEMGR.bid"
+
+1197982866 d:\brew\sdk\sdk\inc\aeeclsid_filemgr.bid
+
+1442990484 d:\brew\sdk\sdk\inc\aeeerror.h
+	"../../inc/AEENetErr.h"
+	"../../inc/AEEPortErr.h"
+
+1443425716 d:\brew\sdk\inc\aeeneterr.h
+
+1197982780 d:\brew\sdk\inc\aeeporterr.h
+
+1197982866 d:\brew\sdk\sdk\inc\aeecomdef.h
+	"../../inc/AEEStdDef.h"
+
+1442990484 d:\brew\sdk\inc\aeestddef.h
+
+1433568038 d:\brew\sdk\inc\aeeevent.h
+
+1197982778 d:\brew\sdk\inc\aeecallback.h
+
+1443073226 d:\brew\sdk\inc\aeedatetime.h
+	"AEEStdDef.h"
+
+1197982780 d:\brew\sdk\inc\aeerect.h
+	"AEEStdDef.h"
+
+1197982866 d:\brew\sdk\sdk\inc\aeeinterface.h
+	"../../inc/AEEInterface.h"
+	"AEEComdef.h"
+	"../../inc/AEEIBase.h"
+
+1197982778 d:\brew\sdk\inc\aeeinterface.h
+
+1197982778 d:\brew\sdk\inc\aeeibase.h
+	"AEEStdDef.h"
+	"AEEInterface.h"
+
+1197982778 d:\brew\sdk\inc\aeeiimage.h
+	"AEEIBase.h"
+	"AEEStdErr.h"
+	"AEEEvent.h"
+	"AEEIAStream.h"
+	"AEEIDisplay.h"
+	"AEEImageInfo.h"
+
+1432896266 d:\brew\sdk\inc\aeestderr.h
+
+1197982778 d:\brew\sdk\inc\aeeiastream.h
+	"AEEIBase.h"
+
+1197982778 d:\brew\sdk\inc\aeeidisplay.h
+	"AEEIBase.h"
+	"AEECallback.h"
+	"AEEIBitmap.h"
+	"AEEIDIB.h"
+	"AEEIFont.h"
+
+1197982778 d:\brew\sdk\inc\aeeibitmap.h
+	"AEEIQI.h"
+	"AEERGBVAL.h"
+	"AEERasterOp.h"
+	"AEEPoint.h"
+	"AEERect.h"
+
+1197982778 d:\brew\sdk\inc\aeeiqi.h
+	"AEEStdDef.h"
+	"AEEInterface.h"
+
+1197982780 d:\brew\sdk\inc\aeergbval.h
+	"AEEStdDef.h"
+
+1197982780 d:\brew\sdk\inc\aeerasterop.h
+	"AEEStdDef.h"
+
+1197982780 d:\brew\sdk\inc\aeepoint.h
+	"AEEStdDef.h"
+
+1197982778 d:\brew\sdk\inc\aeeidib.h
+	"AEEIBitmap.h"
+
+1197982778 d:\brew\sdk\inc\aeeifont.h
+	"AEEStdDef.h"
+	"AEEIBitmap.h"
+
+1197982778 d:\brew\sdk\inc\aeeimageinfo.h
+	"AEEStdDef.h"
+
+1197982778 d:\brew\sdk\inc\aeeiapplet.h
+	"AEEIBase.h"
+	"AEEEvent.h"
+
+1197982866 d:\brew\sdk\sdk\inc\aeequeryinterface.h
+	"AEEInterface.h"
+	"AEEComdef.h"
+	"../../inc/AEEIQI.h"
+
+1442990484 d:\brew\sdk\sdk\inc\aeeshell.h
+	"AEE.h"
+	"AEEVCodes.h"
+	"AEEDisp.h"
+	"AEEImage.h"
+	"AEESoundPlayer.h"
+	"AEEControls_res.h"
+	"AEELngCode.h"
+	"../../inc/AEEDeviceItems.h"
+	"../../inc/AEEAFlags.h"
+	"../../inc/AEEMIF.h"
+
+1432170080 d:\brew\sdk\sdk\inc\aeevcodes.h
+	"../../inc/AEEStdDef.h"
+
+1197982866 d:\brew\sdk\sdk\inc\aeedisp.h
+	"AEE.h"
+	"AEEBitmap.h"
+	"AEEFont.h"
+	"../../inc/AEEIDisplay.h"
+	"../../inc/AEERect.h"
+
+1197982866 d:\brew\sdk\sdk\inc\aeebitmap.h
+	"AEE.h"
+	"../../inc/AEEIBitmap.h"
+	"../../inc/AEEIBitmapDev.h"
+	"../../inc/AEEIDIB.h"
+
+1197982778 d:\brew\sdk\inc\aeeibitmapdev.h
+	"AEEIQI.h"
+	"AEECallback.h"
+
+1197982866 d:\brew\sdk\sdk\inc\aeefont.h
+	"AEEBitmap.h"
+	"../../inc/AEEIFont.h"
+
+1197982866 d:\brew\sdk\sdk\inc\aeeimage.h
+	"../../inc/AEEIImage.h"
+	"AEE.h"
+
+1197982866 d:\brew\sdk\sdk\inc\aeesoundplayer.h
+	"AEE.h"
+	"AEESound.h"
+
+1197982866 d:\brew\sdk\sdk\inc\aeesound.h
+	"../../inc/AEEISound.h"
+	"AEE.h"
+	"AEEResourceCtl.h"
+
+1197982778 d:\brew\sdk\inc\aeeisound.h
+	"AEEIBase.h"
+	"AEEIResourceCtl.h"
+
+1197982778 d:\brew\sdk\inc\aeeiresourcectl.h
+	"AEEIQI.h"
+	"AEECallback.h"
+
+1197982866 d:\brew\sdk\sdk\inc\aeeresourcectl.h
+	"AEE.h"
+	"AEECLSID_RESPRIV_SOUND.BID"
+	"../../inc/AEEIResourceCtl.h"
+	"../../inc/AEEResCtlSound.bid"
+
+1197982866 d:\brew\sdk\sdk\inc\aeeclsid_respriv_sound.bid
+
+1197982780 d:\brew\sdk\inc\aeeresctlsound.bid
+
+1197982866 d:\brew\sdk\sdk\inc\aeecontrols_res.h
+
+1197982866 d:\brew\sdk\sdk\inc\aeelngcode.h
+
+1432174074 d:\brew\sdk\inc\aeedeviceitems.h
+
+1197982778 d:\brew\sdk\inc\aeeaflags.h
+
+1197982780 d:\brew\sdk\inc\aeemif.h
+
+1434554226 d:\brew\sdk\sdk\inc\aeestdlib.h
+	<stddef.h>
+	"AEEOldVaList.h"
+	"AEEComdef.h"
+	"AEE.h"
+	"AEEStdLib_static.h"
+
+1197982866 d:\brew\sdk\sdk\inc\aeeoldvalist.h
+	<stdarg.h>
+
+1432800554 d:\brew\sdk\sdk\inc\aeeappgen.h
+	"AEE.h"
+	"AEEShell.h"
+	"AEEModGen.h"
+
+1432777014 d:\brew\sdk\sdk\inc\aeemodgen.h
+	"AEE.h"
+	"AEEShell.h"
+
+1197982868 d:\brew\sdk\sdk\inc\nmdef.h
+
+1197982866 d:\brew\sdk\sdk\inc\aeeheap.h
+	"AEE.h"
+	"AEEStdLib.h"
+
+1460285408 source:d:\workspace\basicloc\basicloc\basicloc.c
+	"AEEStdLib.h"
+	"AEEAppGen.h"
+	"AEEWeb.h"
+	"AEEFile.h"
+	"BasicLoc.bid"
+	"nmdef.h"
+	"Location.h"
+
+1456371452 d:\brew\sdk\sdk\inc\aeeweb.h
+	"AEE.h"
+	"AEESource.h"
+	"AEEError.h"
+	"AEEWebOpts.h"
+
+1197982866 d:\brew\sdk\sdk\inc\aeesource.h
+	"AEE.h"
+	"AEENet.h"
+	"../../inc/AEEISource.h"
+	"../../inc/AEEIPeek.h"
+
+1443088528 d:\brew\sdk\sdk\inc\aeenet.h
+	"AEE.h"
+	"AEEShell.h"
+	"AEEError.h"
+	"AEEStdLib.h"
+	"AEENetworkTypes.h"
+	"NET_URGENT.BID"
+
+1443076820 d:\brew\sdk\sdk\inc\aeenetworktypes.h
+	"AEEComdef.h"
+
+1197982868 d:\brew\sdk\sdk\inc\net_urgent.bid
+
+1197982778 d:\brew\sdk\inc\aeeisource.h
+	"AEEIQI.h"
+	"AEECallback.h"
+
+1197982778 d:\brew\sdk\inc\aeeipeek.h
+	"AEEISource.h"
+
+1197982868 d:\brew\sdk\sdk\inc\aeewebopts.h
+	"AEE.h"
+	"AEEError.h"
+
+1443087558 d:\brew\sdk\sdk\inc\aeefile.h
+	"AEE.h"
+
+1460276174 d:\workspace\basicloc\basicloc\basicloc.bid
+
+1460276174 d:\workspace\basicloc\basicloc\location\location.h
+	"AEEComdef.h"
+	"AEEPosDet.h"
+
+1443434892 d:\brew\sdk\sdk\inc\aeeposdet.h
+	"AEE.h"
+	"AEENet.h"
+	"AEE64structs.h"
+
+1197982864 d:\brew\sdk\sdk\inc\aee64structs.h
+	"AEEComdef.h"
+	"../../inc/AEE64structs.h"
+
+1197982778 d:\brew\sdk\inc\aee64structs.h
+	"AEEStdDef.h"
+
+1460276174 source:d:\workspace\basicloc\basicloc\location\location.c
+	"AEEComdef.h"
+	"BREWVersion.h"
+	"AEEStdLib.h"
+	"AEEFile.h"
+	"location.h"
+
+1197982868 d:\brew\sdk\sdk\inc\brewversion.h
+
