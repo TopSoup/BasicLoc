@@ -11,6 +11,7 @@ INCLUDES AND VARIABLE DEFINITIONS
 
 #include "Location.h"
 
+#define	BASIC_LOC_VERSION	"1.0.0.2-20160413"
 
 #ifdef AEE_SIMULATOR
 #	define LOG_FILE_PATH				"fs:/shared/basicloc.log"
@@ -397,6 +398,7 @@ static boolean CBasicLoc_HandleEvent(CBasicLoc * pme, AEEEvent eCode, uint16 wPa
 	switch (eCode){
 	case EVT_APP_START:
 		DBGPRINTF("EVT_APP_START");
+		DBGPRINTF(BASIC_LOC_VERSION);
 		return(TRUE);
 
 	case EVT_APP_STOP:
