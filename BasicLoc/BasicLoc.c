@@ -346,13 +346,13 @@ static void CBasicLoc_FreeAppData(CBasicLoc *pme)
 }
 
 #if defined(AEE_STATIC)
-extern "C" int CBasicLoc_CreateInstance(AEECLSID ClsId, IShell * pIShell, IModule * pMod, void ** ppObj)
+int CBasicLoc_CreateInstance(AEECLSID ClsId, IShell * pIShell, IModule * pMod, void ** ppObj);
 
-extern "C" int CBasicLoc_Load(IShell * ps, void * pHelpers, IModule ** pMod) {
+int CBasicLoc_Load(IShell * ps, void * pHelpers, IModule ** pMod) {
 	return AEEStaticMod_New(sizeof(AEEMod), ps, pHelpers, pMod, CBasicLoc_CreateInstance, NULL);
 }
 
-extern "C" int CBasicLoc_CreateInstance(AEECLSID ClsId, IShell * pIShell, IModule * po, void ** ppObj)
+int CBasicLoc_CreateInstance(AEECLSID ClsId, IShell * pIShell, IModule * pMod, void ** ppObj)
 #else
 int AEEClsCreateInstance(AEECLSID ClsId, IShell * pIShell, IModule * pMod, void ** ppObj)
 #endif
