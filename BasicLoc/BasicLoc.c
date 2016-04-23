@@ -15,10 +15,10 @@ INCLUDES AND VARIABLE DEFINITIONS
 
 #ifdef AEE_SIMULATOR
 #	define LOG_FILE_PATH				"fs:/shared/basicloc.log"
-#	define CONFIG_PATH					"fs:/shared/config.txt"
+#	define CONFIG_PATH					"fs:/shared/basicloc.txt"
 #else
-#	define LOG_FILE_PATH				"fs:/mod/basicloc/basicloc.log"
-#	define CONFIG_PATH					"fs:/mod/basicloc/config.txt"
+#	define LOG_FILE_PATH				"fs:/shared/basicloc.log"
+#	define CONFIG_PATH					"fs:/shared/basicloc.txt"
 #endif // AEE_SIMULATOR
 
 /************************************************************************/
@@ -104,6 +104,9 @@ Static function prototypes
 static boolean	CBasicLoc_InitAppData(CBasicLoc *pme);
 static void		CBasicLoc_FreeAppData(CBasicLoc *pme);
 static boolean	CBasicLoc_HandleEvent(CBasicLoc *pme, AEEEvent eCode, uint16 wParam, uint32 dwParam);
+
+static void        CBasicLoc_Start(CBasicLoc *pme);
+static void        CBasicLoc_Stop(CBasicLoc *pme);
 
 static void		CBasicLoc_LocStart(CBasicLoc *pme);
 static void		CBasicLoc_LocStop(CBasicLoc *pme);
@@ -222,106 +225,87 @@ static int CBasicLoc_GetMeid(CBasicLoc *pme)
 	}
 	else
 	{
-		SPRINTF(szBuf, "Get MEID Failed! ERR:%d", err);
+		SPRINTF(szBuf, "Get MEID Failed! ERR:%d\n", err);
 		log_output(pme->m_file, szBuf);
 	}
 
 	return err;
 }
 
+static void CBasicLoc_Start(CBasicLoc *pme)
+{
+    GetGPSInfo *pGetGPSInfo = &pme->m_gpsInfo;
+
+    pme->m_gpsMode = AEEGPS_MODE_TRACK_STANDALONE;
+
+    pGetGPSInfo->bAbort = TRUE;
+
+    //Get MEID
+    CBasicLoc_GetMeid(pme);
+
+    DBGPRINTF("LoadConfig ...");
+    //Load Config
+    if (SUCCESS != LoadConfig(pme))
+    {
+        DBGPRINTF("Please Config Server info!");
+        log_output(pme->m_file, "Please Configure Server Information");
+        play_tts(pme, L"Please Configure Server Information");
+    }
+
+    DBGPRINTF("Setting Callback ...");
+
+    //Callback
+    CALLBACK_Init(&pme->m_cbWatcherTimer, CBasicLoc_GetGPSInfo_Watcher, pme);
+    ISHELL_SetTimerEx(pme->a.m_pIShell, 10000, &pme->m_cbWatcherTimer);
+
+    CALLBACK_Init(&pme->m_cbNetTimer, CBasicLoc_Net_Timer, pme);
+    ISHELL_SetTimerEx(pme->a.m_pIShell, 5000, &pme->m_cbNetTimer);
+    DBGPRINTF("CBasicLoc_Start over");
+}
+
+static void CBasicLoc_Stop(CBasicLoc *pme)
+{
+    CBasicLoc_LocStop(pme);
+
+    CALLBACK_Cancel(&pme->m_cbWatcherTimer);
+    CALLBACK_Cancel(&pme->m_cbNetTimer);
+    DBGPRINTF("CBasicLoc_Stop over");
+}
 static boolean CBasicLoc_InitAppData(CBasicLoc *pme)
 {
-	GetGPSInfo *pGetGPSInfo = &pme->m_gpsInfo;
+    //Server Config
+    MEMSET(pme->m_szIP,0,20);			//服务器IP
+    pme->m_nPort = 0;	    			//服务器端口
+    pme->m_interval = 0;				//上传间隔
+    MEMSET(pme->m_szData,0,255);        //数据内容
+    pme->m_nLen = 0;					//数据长度
+    MEMSET(pme->m_meid,0,32);			//设备MEID
 
-	pme->m_gpsMode = AEEGPS_MODE_TRACK_STANDALONE;
-
-	pGetGPSInfo->bAbort = TRUE;
-
-	//FileMgr
-	if (AEE_SUCCESS != ISHELL_CreateInstance(pme->a.m_pIShell, AEECLSID_FILEMGR, (void **)&(pme->m_fm))) {
-		DBGPRINTF("ISHELL_CreateInstance for AEECLSID_FILEMGR failed!");
-		return FALSE;
-	}
+    //FileMgr
+    if (AEE_SUCCESS != ISHELL_CreateInstance(pme->a.m_pIShell, AEECLSID_FILEMGR, (void **)&(pme->m_fm))) {
+        DBGPRINTF("ISHELL_CreateInstance for AEECLSID_FILEMGR failed!");
+        return ;
+    }
 
 #if 0
-	//Delete Old Log
+    //Delete Old Log
 	if (AEE_SUCCESS == IFILEMGR_Test(pme->m_fm, LOG_FILE_PATH))
 	{
 		IFILEMGR_Remove(pme->m_fm, LOG_FILE_PATH);
 	}
 #endif
 
-	//Open File
-	pme->m_file = IFILEMGR_OpenFile(pme->m_fm, LOG_FILE_PATH, _OFM_APPEND);
-	if (NULL == pme->m_file)
-	{
-		pme->m_file = IFILEMGR_OpenFile(pme->m_fm, LOG_FILE_PATH, _OFM_CREATE);
-		if (NULL == pme->m_file)
-		{
-			DBGPRINTF("IFILEMGR_OpenFile %s failed!", LOG_FILE_PATH);
-			return FALSE;
-		}
-	}
-
-	//Get MEID
-	CBasicLoc_GetMeid(pme);
-
-	//Load Config
-	if (SUCCESS != LoadConfig(pme))
-	{
-		DBGPRINTF("Please Config Server info!");
-		log_output(pme->m_file, "Please Configure Server Information");
-		play_tts(pme, L"Please Configure Server Information");
-		
-	}
-
-	//Callback
-	CALLBACK_Init(&pme->m_cbWatcherTimer, CBasicLoc_GetGPSInfo_Watcher, pme);
-	ISHELL_SetTimerEx(pme->a.m_pIShell, 10000, &pme->m_cbWatcherTimer);
-
-	CALLBACK_Init(&pme->m_cbNetTimer, CBasicLoc_Net_Timer, pme);
-	ISHELL_SetTimerEx(pme->a.m_pIShell, 8000, &pme->m_cbNetTimer);
-
-	//ONLY FOR TEST
-
-// 	{
-// 		char szBuf[64];
-// 
-// 		DBGPRINTF("@@114.123456 %s", FORMATFLT(szBuf, 114.123456));
-// 		DBGPRINTF("@@-27.654321 %s", FORMATFLT(szBuf, -27.654321));
-// 		DBGPRINTF("@@-0.123456 %s", FORMATFLT(szBuf, -0.123456));
-// 		DBGPRINTF("@@1.654321 %s", FORMATFLT(szBuf, 1.654321));
-// 
-// 	}
-
-	//get devices id
-// 	{
-// 		char szBuf[128];
-// 		char esn[64], meid[64], imsi[64], imei[64];
-// 		int size = 0;
-// 		int err = 0;
-// 
-// 		size = 32;
-// 		err = ISHELL_GetDeviceInfoEx(pme->a.m_pIShell, AEE_DEVICEITEM_MEIDS, meid, &size);
-// 		DBGPRINTF("meid: %s size:%d err:%d", meid, size, err);
-// 
-// 		size = 32;
-// 		err = ISHELL_GetDeviceInfoEx(pme->a.m_pIShell, AEE_DEVICEITEM_ESN, esn, &size);
-// 		DBGPRINTF("esn: %s size:%d err:%d", esn, size, err);
-// 
-// 		size = 32;
-// 		err = ISHELL_GetDeviceInfoEx(pme->a.m_pIShell, AEE_DEVICEITEM_MOBILE_ID, imsi, &size);
-// 		DBGPRINTF("imsi: %s size:%d err:%d", imsi, size, err);
-// 
-// 		size = 32;
-// 		err = ISHELL_GetDeviceInfoEx(pme->a.m_pIShell, AEE_DEVICEITEM_IMEI, imei, &size);
-// 		DBGPRINTF("imei: %s size:%d err:%d", imei, size, err);
-// 
-// 		SPRINTF(szBuf, "device_id esn:%s meid:%s imsi:%s imei:%s", esn, meid, imsi, imei);
-// 		log_output(pme->m_file, szBuf);
-// 
-// 	}
-
+    //Open File
+    pme->m_file = IFILEMGR_OpenFile(pme->m_fm, LOG_FILE_PATH, _OFM_APPEND);
+    if (NULL == pme->m_file)
+    {
+        pme->m_file = IFILEMGR_OpenFile(pme->m_fm, LOG_FILE_PATH, _OFM_CREATE);
+        if (NULL == pme->m_file)
+        {
+            DBGPRINTF("IFILEMGR_OpenFile %s failed!", LOG_FILE_PATH);
+            return ;
+        }
+    }
 
 	return TRUE;
 }
@@ -399,10 +383,12 @@ static boolean CBasicLoc_HandleEvent(CBasicLoc * pme, AEEEvent eCode, uint16 wPa
 	case EVT_APP_START:
 		DBGPRINTF("EVT_APP_START");
 		DBGPRINTF(BASIC_LOC_VERSION);
+        CBasicLoc_Start(pme);
 		return(TRUE);
 
 	case EVT_APP_STOP:
 		DBGPRINTF("EVT_APP_STOP");
+        CBasicLoc_Stop(pme);
 		return(TRUE);
 
 	case EVT_KEY:
@@ -425,22 +411,21 @@ static boolean CBasicLoc_HandleEvent(CBasicLoc * pme, AEEEvent eCode, uint16 wPa
 		}
 		return(TRUE);
 	}
-	case EVT_NOTIFY:
-	{
-		AEENotify *wp = (AEENotify *)dwParam;
-		DBGPRINTF("receive notify cls=%x", wp->cls);
-
-		//开机自启动
-		if (wp->cls == AEECLSID_SHELL)
-		{
-			if (wp->dwMask & NMASK_SHELL_INIT)
-			{
-				ISHELL_StartApplet(pme->a.m_pIShell, AEECLSID_BASICLOC);
-			}
-		}
-
-		return (TRUE);
-	}
+//	case EVT_NOTIFY:
+//	{
+//		AEENotify *wp = (AEENotify *)dwParam;
+//		DBGPRINTF("receive notify cls=%x", wp->cls);
+//
+//		//开机自启动
+//		if (wp->cls == AEECLSID_SHELL)
+//		{
+//			if (wp->dwMask & NMASK_SHELL_INIT)
+//			{
+//				ISHELL_StartApplet(pme->a.m_pIShell, AEECLSID_BASICLOC);
+//			}
+//		}
+//		return (TRUE);
+//	}
 	default:
 		break;
 
@@ -543,14 +528,14 @@ static void CBasicLoc_GetGPSInfo_Watcher(CBasicLoc *pme)
 
 	if (pGetGPSInfo->bPaused == FALSE) {
 		pGetGPSInfo->wProgress ++;
-		DBGPRINTF("@Where GetGPS progress:%d", pGetGPSInfo->wProgress);
 	}
 
 	if (pGetGPSInfo->bAbort == TRUE)
 	{
 		pGetGPSInfo->wIdleCount ++;
-		DBGPRINTF("@Where GetGPS wIdleCount:%d", pGetGPSInfo->wIdleCount);
 	}
+
+    DBGPRINTF("@GetGPSInfo_Watcher progress:%d wIdleCount:%d", pGetGPSInfo->wProgress, pGetGPSInfo->wIdleCount);
 
 	//重新启动
 	//1 空闲30秒
@@ -559,7 +544,7 @@ static void CBasicLoc_GetGPSInfo_Watcher(CBasicLoc *pme)
 	{
 		//play_tts(pme, L"restart location");
 
-		DBGPRINTF("@Where GetGPS CBasicLoc_LocStart");
+		DBGPRINTF("@GetGPSInfo_Watcher GetGPS CBasicLoc_LocStart");
 		CBasicLoc_LocStop(pme);
 		CBasicLoc_LocStart(pme);
 	}
@@ -572,8 +557,9 @@ This function called by basicloc modoule.
 ===========================================================================*/
 static void CBasicLoc_Net_Timer(CBasicLoc *pme)
 {
+    DBGPRINTF("CBasicLoc_Net_Timer in");
 	//一小时回环
-	pme->m_nIdle = (pme->m_nIdle + 1) % 3600;
+	pme->m_nIdle = (pme->m_nIdle + 1) % 30;
 
 	//查看网络是否初始化(20秒)
 	if (pme->m_nIdle > NET_TIMER)
@@ -599,18 +585,6 @@ static void CBasicLoc_Net_Timer(CBasicLoc *pme)
 				DBGPRINTF("OpenSocket Failed!");
 				pme->m_nIdle = 0;	//等待30秒继续初始化SOCKET
 			}
-
-			//设定服务器端口和IP
-			//STRCPY(pme->m_szIP, "119.254.211.165");
-			//pme->m_nPort = 10061;
-
-
-			//STRCPY(pme->m_szIP, "60.195.250.128");
-			//pme->m_nPort = 6767;
-
-			//STRCPY(pme->m_szData, "THIS IS TEST WORD.");
-			//pme->m_nLen = STRLEN(pme->m_szData) + 1;
-
 		}
 	}
 
@@ -709,8 +683,14 @@ static void CBasicLoc_UDPWrite(CBasicLoc *pme)
 
 	if (STRLEN(pme->m_szIP) == 0 || pme->m_nPort == 0)
 	{
-		play_tts(pme, L"Please Configure Server Infomation");
-		DBGPRINTF("Please Configure Server Infomation");
+        DBGPRINTF("Please Configure Server Infomation");
+        //Load Config
+        if (SUCCESS != LoadConfig(pme))
+        {
+            DBGPRINTF("Please Config Server info!");
+            log_output(pme->m_file, "Please Configure Server Information");
+            play_tts(pme, L"Please Configure Server Information");
+        }
 		return;
 	}
 	
@@ -787,7 +767,9 @@ static void CBasicLoc_UDPWrite(CBasicLoc *pme)
 	}
 	else if (nErr == AEE_NET_ERROR) {
 		DBGPRINTF("Send Failed: Error %d\n", ISOCKET_GetLastError(pme->m_pISocket));
+        ISOCKET_Close(pme->m_pISocket);
 		BL_RELEASEIF(pme->m_pISocket);
+        BL_RELEASEIF(pme->m_pINetMgr);
 	}
 	else {
 		DBGPRINTF("** sending complete...\n");
@@ -843,18 +825,20 @@ static uint32 LoadConfig(CBasicLoc *pme)
 	IFile		*pIFile = NULL;
 	IShell		*pIShell = NULL;
 
-	char    *pszBufOrg = NULL;
-	char    *pszBuf = NULL;
+	char    szBuf[128];
 	char    *pszTok = NULL;
 	char    *pszDelimiter = ";";
 	int32	nResult = 0;
 	FileInfo	fiInfo;
-	
+	int     ret = SUCCESS;
+    uint32  len = 0;
+
 	pIShell = pme->a.m_pIShell;
 
 	// Create the instance of IFileMgr
 	nResult = ISHELL_CreateInstance(pIShell, AEECLSID_FILEMGR, (void**)&pIFileMgr);
 	if (SUCCESS != nResult) {
+        DBGPRINTF("Create AEECLSID_FILEMGR Failed!");
 		return nResult;
 	}
 
@@ -862,8 +846,8 @@ static uint32 LoadConfig(CBasicLoc *pme)
 	if (nResult != SUCCESS)
 	{
 		DBGPRINTF("CONFIG NOT EXIST!");
-		IFILEMGR_Release(pIFileMgr);
-		return SUCCESS;
+        ret = EFAILED;
+        goto EXIT;
 	}
 
 	pIFile = IFILEMGR_OpenFile(pIFileMgr, CONFIG_PATH, _OFM_READWRITE);
@@ -873,57 +857,49 @@ static uint32 LoadConfig(CBasicLoc *pme)
 	}
 
 	if (SUCCESS != IFILE_GetInfo(pIFile, &fiInfo)) {
-		IFILE_Release(pIFile);
-		IFILEMGR_Release(pIFileMgr);
-		return EFAILED;
+        ret = EFAILED;
+        goto EXIT;
 	}
 
 	if (fiInfo.dwSize == 0) {
-		IFILE_Release(pIFile);
-		IFILEMGR_Release(pIFileMgr);
-		return EFAILED;
+        ret = EFAILED;
+        goto EXIT;
 	}
 
-	// Allocate enough memory to read the full text into memory
-	pszBufOrg = MALLOC(fiInfo.dwSize);
-	pszBuf = MALLOC(fiInfo.dwSize);
+    //限定在128字节内
+    len = fiInfo.dwSize;
+    if (len >= 128)
+        len = 127;
 
-	nResult = IFILE_Read(pIFile, pszBufOrg, fiInfo.dwSize);
-	if ((uint32)nResult < fiInfo.dwSize) {
-		FREE(pszBuf);
-		return EFAILED;
+    MEMSET(szBuf, 0, 128);
+	nResult = IFILE_Read(pIFile, szBuf, len);
+	if ((uint32)nResult < len) {
+        ret = EFAILED;
+        goto EXIT;
 	}
-
-	TrimSpace(pszBufOrg, pszBuf);
-	FREE(pszBufOrg);
 
 	//server port
-	pszTok = STRSTR(pszBuf, CONFIG_SVR_PORT);
+	pszTok = STRSTR(szBuf, CONFIG_SVR_PORT);
 	if (pszTok) {
 		pszTok = pszTok + STRLEN(CONFIG_SVR_PORT);
 		pme->m_nPort = (uint16)STRTOUL(pszTok, &pszDelimiter, 10);
 	}
 	else
 	{
-		FREE(pszBuf);
-		IFILE_Release(pIFile);
-		IFILEMGR_Release(pIFileMgr);
-		return EFAILED;
+        ret = EFAILED;
+        goto EXIT;
 	}
 
 	//server ip
-	pszTok = STRSTR(pszBuf, CONFIG_SVR_IP);
+	pszTok = STRSTR(szBuf, CONFIG_SVR_IP);
 	if (pszTok) {
 		pszTok = pszTok + STRLEN(CONFIG_SVR_IP);
 		nResult = DistToSemi(pszTok);
 		if (nResult < 7)	//IP至少为0.0.0.0
 		{
 			DBGPRINTF("Not Found IP");
-
-			FREE(pszBuf);
-			IFILE_Release(pIFile);
-			IFILEMGR_Release(pIFileMgr);
-			return EFAILED;
+            ret = EFAILED;
+            goto EXIT;
 		}
 		else
 		{
@@ -933,14 +909,12 @@ static uint32 LoadConfig(CBasicLoc *pme)
 	}
 	else
 	{
-		FREE(pszBuf);
-		IFILE_Release(pIFile);
-		IFILEMGR_Release(pIFileMgr);
-		return EFAILED;
+        ret = EFAILED;
+        goto EXIT;
 	}
 
 	//interval
-	pszTok = STRSTR(pszBuf, CONFIG_INTERVAL);
+	pszTok = STRSTR(szBuf, CONFIG_INTERVAL);
 	if (pszTok) {
 		pszTok = pszTok + STRLEN(CONFIG_INTERVAL);
 		pme->m_interval = (uint16)STRTOUL(pszTok, &pszDelimiter, 10);
@@ -951,9 +925,13 @@ static uint32 LoadConfig(CBasicLoc *pme)
 		pme->m_interval = DEFAULT_INTERVAL;
 	}
 #endif
-	FREE(pszBuf);
-	IFILE_Release(pIFile);
-	IFILEMGR_Release(pIFileMgr);
 
-	return SUCCESS;
+    DBGPRINTF("LoadConfig: server_ip:%s, server_port:%d, interval:%d", pme->m_szIP, pme->m_nPort, pme->m_interval);
+EXIT:
+    if (pIFile != NULL)
+        IFILE_Release(pIFile);
+    if (pIFileMgr != NULL)
+        IFILEMGR_Release(pIFileMgr);
+
+	return ret;
 }
