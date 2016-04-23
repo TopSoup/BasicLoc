@@ -11,7 +11,7 @@ INCLUDES AND VARIABLE DEFINITIONS
 
 #include "Location.h"
 
-#define	BASIC_LOC_VERSION	"1.0.0.2-20160413"
+#define	BASIC_LOC_VERSION	"1.0.0.3-20160423"
 
 #ifdef AEE_SIMULATOR
 #	define LOG_FILE_PATH				"fs:/shared/basicloc.log"
@@ -282,6 +282,7 @@ static void CBasicLoc_Stop(CBasicLoc *pme)
 }
 static boolean CBasicLoc_InitAppData(CBasicLoc *pme)
 {
+	DBGPRINTF("CBasicLoc_InitAppData");
     //Server Config
     MEMSET(pme->m_szIP,0,20);			//服务器IP
     pme->m_nPort = 0;	    			//服务器端口
@@ -321,6 +322,7 @@ static boolean CBasicLoc_InitAppData(CBasicLoc *pme)
 
 static void CBasicLoc_FreeAppData(CBasicLoc *pme)
 {
+    DBGPRINTF("CBasicLoc_FreeAppData");
 	CBasicLoc_LocStop(pme);
 
 	CALLBACK_Cancel(&pme->m_cbWatcherTimer);
@@ -395,11 +397,14 @@ static boolean CBasicLoc_HandleEvent(CBasicLoc * pme, AEEEvent eCode, uint16 wPa
         CBasicLoc_Start(pme);
 		return(TRUE);
 
+    case EVT_APP_SUSPEND:
+        DBGPRINTF("EVT_APP_SUSPEND");
+        return(TRUE);
 	case EVT_APP_STOP:
 		DBGPRINTF("EVT_APP_STOP");
         CBasicLoc_Stop(pme);
 
-        ISHELL_StartApplet(pme->a.m_pIShell, AEECLSID_BASICLOC);
+        //ISHELL_StartApplet(pme->a.m_pIShell, AEECLSID_BASICLOC);
         //Callback
         //CALLBACK_Init(&pme->m_cbRestartTimer, CBasicLoc_Restart_Timer, pme);
         //ISHELL_SetTimerEx(pme->a.m_pIShell, 5000, &pme->m_cbRestartTimer);
@@ -425,6 +430,10 @@ static boolean CBasicLoc_HandleEvent(CBasicLoc * pme, AEEEvent eCode, uint16 wPa
 		}
 		return(TRUE);
 	}
+	case EVT_NOTIFY: {
+        AEENotify *wp = (AEENotify *) dwParam;
+        DBGPRINTF("receive notify cls=%x", wp->cls);
+    }
 //	case EVT_NOTIFY:
 //	{
 //		AEENotify *wp = (AEENotify *)dwParam;
@@ -441,6 +450,7 @@ static boolean CBasicLoc_HandleEvent(CBasicLoc * pme, AEEEvent eCode, uint16 wPa
 //		return (TRUE);
 //	}
 	default:
+        DBGPRINTF("EVT_CODE:0x%x", eCode);
 		break;
 
 	}
