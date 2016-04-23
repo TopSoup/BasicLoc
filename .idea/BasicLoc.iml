@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module type="CPP_MODULE" version="4">
+  <component name="NewModuleRootManager">
+    <content url="file://$MODULE_DIR$">
+      <sourceFolder url="file://$MODULE_DIR$/BasicLoc/AEEAppGen.c" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/BasicLoc/BasicLoc.c" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/BasicLoc/AEEModGen.c" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/BasicLoc/Location/Location.c" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/BasicLoc/Location/Location.h" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/BasicLoc/basicloc.bid" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/CMakeLists.txt" isTestSource="false" />
+    </content>
+    <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="module-library">
+      <library name="Header Search Paths">
+        <CLASSES>
+          <root url="file://C:/Program Files (x86)/CodeBlocks/MinGW/lib/gcc/mingw32/4.9.2/include-fixed" />
+          <root url="file://C:/Program Files (x86)/CodeBlocks/MinGW/lib/gcc/mingw32/4.9.2/include" />
+          <root url="file://C:/Program Files (x86)/CodeBlocks/MinGW/include" />
+          <root url="file://D:/BREW/Sdk/inc" />
+          <root url="file://D:/BREW/Sdk/sdk/inc" />
+        </CLASSES>
+        <SOURCES>
+          <root url="file://C:/Program Files (x86)/CodeBlocks/MinGW/lib/gcc/mingw32/4.9.2/include-fixed" />
+          <root url="file://C:/Program Files (x86)/CodeBlocks/MinGW/lib/gcc/mingw32/4.9.2/include" />
+          <root url="file://C:/Program Files (x86)/CodeBlocks/MinGW/include" />
+          <root url="file://D:/BREW/Sdk/inc" />
+          <root url="file://D:/BREW/Sdk/sdk/inc" />
+        </SOURCES>
+      </library>
+    </orderEntry>
+  </component>
+</module>

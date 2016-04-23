@@ -62,12 +62,14 @@ FOR ZTE G180 MACROS DECLARATIONS
 #define NET_TIMER		20
 #endif
 
-
+#define TOUPPER(c)  ('a'<=(c) && (c)<='z' ? (c)-'a'+'A' : (c))
 #define BL_RELEASEIF(p) BL_FreeIF((IBase **)&(p))
 
 typedef struct _CBasicLoc
 {
 	AEEApplet		a;
+
+    AEECallback			m_cbRestartTimer;	        // Callback for app
 
 	//Location Services
 	AEEGPSMode		m_gpsMode;	//gpsMode
@@ -114,6 +116,8 @@ static void		CBasicLoc_GetGPSInfo_Watcher(CBasicLoc *pme);
 static void		CBasicLoc_GetGPSInfo_Callback(CBasicLoc *pme);
 static void		CBasicLoc_Net_Timer(CBasicLoc *pme);
 static void		CBasicLoc_UDPWrite(CBasicLoc *pme);
+
+static void		CBasicLoc_Restart_Timer(CBasicLoc *pme);
 
 //Get MEID
 static int		CBasicLoc_GetMeid(CBasicLoc *pme);
@@ -220,6 +224,11 @@ static int CBasicLoc_GetMeid(CBasicLoc *pme)
 	DBGPRINTF("meid: %s size:%d err:%d", pme->m_meid, size, err);
 	if (err == SUCCESS)
 	{
+        int i = 0;
+        for (i = 0; i < STRLEN(pme->m_meid); i ++)
+        {
+            pme->m_meid[i] = TOUPPER(pme->m_meid[i]);
+        }
 		SPRINTF(szBuf, "Get MEID: %s\n", pme->m_meid);
 		log_output(pme->m_file, szBuf);
 	}
@@ -389,6 +398,11 @@ static boolean CBasicLoc_HandleEvent(CBasicLoc * pme, AEEEvent eCode, uint16 wPa
 	case EVT_APP_STOP:
 		DBGPRINTF("EVT_APP_STOP");
         CBasicLoc_Stop(pme);
+
+        ISHELL_StartApplet(pme->a.m_pIShell, AEECLSID_BASICLOC);
+        //Callback
+        //CALLBACK_Init(&pme->m_cbRestartTimer, CBasicLoc_Restart_Timer, pme);
+        //ISHELL_SetTimerEx(pme->a.m_pIShell, 5000, &pme->m_cbRestartTimer);
 		return(TRUE);
 
 	case EVT_KEY:
@@ -698,7 +712,7 @@ static void CBasicLoc_UDPWrite(CBasicLoc *pme)
 	if (STRLEN(pme->m_meid) == 0)
 	{
 #ifdef AEE_SIMULATOR
-		STRCPY(pme->m_meid, "A000003841A719");
+		STRCPY(pme->m_meid, "A100003A38B745");
 #else
 		//Get MEID
 		if (SUCCESS != CBasicLoc_GetMeid(pme))
@@ -934,4 +948,13 @@ EXIT:
         IFILEMGR_Release(pIFileMgr);
 
 	return ret;
+}
+
+/*===========================================================================
+This function called by basicloc modoule.
+===========================================================================*/
+static void CBasicLoc_Restart_Timer(CBasicLoc *pme)
+{
+    DBGPRINTF("CBasicLoc_Restart_Timer IN");
+    ISHELL_StartApplet(pme->a.m_pIShell, AEECLSID_BASICLOC);
 }
