@@ -21,7 +21,7 @@ PUBLIC CLASSES:
 INITIALIZATION AND SEQUENCING REQUIREMENTS:  N/A
 
 
-          Copyright © 1999-2002 QUALCOMM Incorporated.
+          Copyright ?1999-2002 QUALCOMM Incorporated.
                       All Rights Reserved.
                    QUALCOMM Proprietary/GTDR
   ========================================================================== */
@@ -364,7 +364,7 @@ static int AEEMod_CreateInstance(IModule *pIModule,IShell *pIShell,
    //   registered the create Instance function. Invoke it.
    if (pme->pfnModCrInst) {
       nErr = pme->pfnModCrInst(ClsId, pIShell, pIModule, ppObj);
-#if !defined(AEE_STATIC) && !defined(SLPTT_STATIC)
+#if !defined(AEE_STATIC) && !defined(AEECLSID_BASICLOC)
    } else {
       nErr = AEEClsCreateInstance(ClsId, pIShell, pIModule, ppObj);
 #endif
