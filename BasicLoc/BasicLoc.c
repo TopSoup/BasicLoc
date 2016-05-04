@@ -12,7 +12,7 @@ INCLUDES AND VARIABLE DEFINITIONS
 #include "Location.h"
 
 
-#define	BASIC_LOC_VERSION	"1.0.0.4-20160504"
+#define	BASIC_LOC_VERSION	"1.0.0.5-20160504"
 
 
 #ifdef AEE_SIMULATOR
@@ -219,6 +219,7 @@ static int CBasicLoc_GetMeid(CBasicLoc *pme)
 	int size = 0;
 	int err = 0;
 
+	DBGPRINTF("CBasicLoc_GetMeid begin");
 	MEMSET(pme->m_meid, 0, 32);
 
 	size = 32;
@@ -240,12 +241,43 @@ static int CBasicLoc_GetMeid(CBasicLoc *pme)
 		log_output(pme->m_file, szBuf);
 	}
 
+	DBGPRINTF("CBasicLoc_GetMeid end");
 	return err;
 }
 
 static void CBasicLoc_Start(CBasicLoc *pme)
 {
     GetGPSInfo *pGetGPSInfo = &pme->m_gpsInfo;
+
+	DBGPRINTF("CBasicLoc_Start begin");
+
+	DBGPRINTF("FileMgr init begin");
+	//FileMgr
+	if (AEE_SUCCESS != ISHELL_CreateInstance(pme->a.m_pIShell, AEECLSID_FILEMGR, (void **)&(pme->m_fm))) {
+		DBGPRINTF("ISHELL_CreateInstance for AEECLSID_FILEMGR failed!");
+		return;
+	}
+
+#if 0
+	//Delete Old Log
+	if (AEE_SUCCESS == IFILEMGR_Test(pme->m_fm, LOG_FILE_PATH))
+	{
+		IFILEMGR_Remove(pme->m_fm, LOG_FILE_PATH);
+	}
+#endif
+
+	//Open File
+	pme->m_file = IFILEMGR_OpenFile(pme->m_fm, LOG_FILE_PATH, _OFM_APPEND);
+	if (NULL == pme->m_file)
+	{
+		pme->m_file = IFILEMGR_OpenFile(pme->m_fm, LOG_FILE_PATH, _OFM_CREATE);
+		if (NULL == pme->m_file)
+		{
+			DBGPRINTF("IFILEMGR_OpenFile %s failed!", LOG_FILE_PATH);
+			return;
+		}
+	}
+	DBGPRINTF("FileMgr init end");
 
     pme->m_gpsMode = AEEGPS_MODE_TRACK_STANDALONE;
 
@@ -284,7 +316,7 @@ static void CBasicLoc_Stop(CBasicLoc *pme)
 }
 static boolean CBasicLoc_InitAppData(CBasicLoc *pme)
 {
-	DBGPRINTF("CBasicLoc_InitAppData");
+	DBGPRINTF("CBasicLoc_InitAppData begin");
     //Server Config
     MEMSET(pme->m_szIP,0,20);			//服务器IP
     pme->m_nPort = 0;	    			//服务器端口
@@ -293,32 +325,7 @@ static boolean CBasicLoc_InitAppData(CBasicLoc *pme)
     pme->m_nLen = 0;					//数据长度
     MEMSET(pme->m_meid,0,32);			//设备MEID
 
-    //FileMgr
-    if (AEE_SUCCESS != ISHELL_CreateInstance(pme->a.m_pIShell, AEECLSID_FILEMGR, (void **)&(pme->m_fm))) {
-        DBGPRINTF("ISHELL_CreateInstance for AEECLSID_FILEMGR failed!");
-        return FALSE;
-    }
-
-#if 0
-    //Delete Old Log
-	if (AEE_SUCCESS == IFILEMGR_Test(pme->m_fm, LOG_FILE_PATH))
-	{
-		IFILEMGR_Remove(pme->m_fm, LOG_FILE_PATH);
-	}
-#endif
-
-    //Open File
-    pme->m_file = IFILEMGR_OpenFile(pme->m_fm, LOG_FILE_PATH, _OFM_APPEND);
-    if (NULL == pme->m_file)
-    {
-        pme->m_file = IFILEMGR_OpenFile(pme->m_fm, LOG_FILE_PATH, _OFM_CREATE);
-        if (NULL == pme->m_file)
-        {
-            DBGPRINTF("IFILEMGR_OpenFile %s failed!", LOG_FILE_PATH);
-            return FALSE;
-        }
-    }
-
+	DBGPRINTF("CBasicLoc_InitAppData end");
 	return TRUE;
 }
 
