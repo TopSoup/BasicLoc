@@ -364,7 +364,7 @@ static int AEEMod_CreateInstance(IModule *pIModule,IShell *pIShell,
    //   registered the create Instance function. Invoke it.
    if (pme->pfnModCrInst) {
       nErr = pme->pfnModCrInst(ClsId, pIShell, pIModule, ppObj);
-#if !defined(AEE_STATIC) && !defined(AEECLSID_BASICLOC)
+#if !defined(AEE_STATIC) && !defined(BASICLOC_STATIC)
    } else {
       nErr = AEEClsCreateInstance(ClsId, pIShell, pIModule, ppObj);
 #endif
