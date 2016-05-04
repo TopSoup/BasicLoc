@@ -11,7 +11,9 @@ INCLUDES AND VARIABLE DEFINITIONS
 
 #include "Location.h"
 
-#define	BASIC_LOC_VERSION	"1.0.0.5-20160504"
+
+#define	BASIC_LOC_VERSION	"1.0.0.4-20160504"
+
 
 #ifdef AEE_SIMULATOR
 #	define LOG_FILE_PATH				"fs:/shared/basicloc.log"
