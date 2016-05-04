@@ -349,14 +349,14 @@ static void CBasicLoc_FreeAppData(CBasicLoc *pme)
 	BL_RELEASEIF(pme->m_fm);
 }
 
-#if defined(AEE_STATIC)
-int CBasicLoc_CreateInstance(AEECLSID ClsId, IShell * pIShell, IModule * pMod, void ** ppObj);
+#if defined(AEE_STATIC) || defined(BASICLOC_STATIC)
+extern "C" int CBasicLoc_CreateInstance(AEECLSID ClsId, IShell * pIShell, IModule * pMod, void ** ppObj);
 
-int CBasicLoc_Load(IShell * ps, void * pHelpers, IModule ** pMod) {
+extern "C" int CBasicLoc_Load(IShell * ps, void * pHelpers, IModule ** pMod) {
 	return AEEStaticMod_New(sizeof(AEEMod), ps, pHelpers, pMod, CBasicLoc_CreateInstance, NULL);
 }
 
-int CBasicLoc_CreateInstance(AEECLSID ClsId, IShell * pIShell, IModule * pMod, void ** ppObj)
+extern "C" int CBasicLoc_CreateInstance(AEECLSID ClsId, IShell * pIShell, IModule * pMod, void ** ppObj)
 #else
 int AEEClsCreateInstance(AEECLSID ClsId, IShell * pIShell, IModule * pMod, void ** ppObj)
 #endif
