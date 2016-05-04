@@ -294,7 +294,7 @@ static boolean CBasicLoc_InitAppData(CBasicLoc *pme)
     //FileMgr
     if (AEE_SUCCESS != ISHELL_CreateInstance(pme->a.m_pIShell, AEECLSID_FILEMGR, (void **)&(pme->m_fm))) {
         DBGPRINTF("ISHELL_CreateInstance for AEECLSID_FILEMGR failed!");
-        return ;
+        return FALSE;
     }
 
 #if 0
@@ -313,7 +313,7 @@ static boolean CBasicLoc_InitAppData(CBasicLoc *pme)
         if (NULL == pme->m_file)
         {
             DBGPRINTF("IFILEMGR_OpenFile %s failed!", LOG_FILE_PATH);
-            return ;
+            return FALSE;
         }
     }
 
