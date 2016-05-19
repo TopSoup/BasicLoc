@@ -12,7 +12,7 @@ INCLUDES AND VARIABLE DEFINITIONS
 #include "Location.h"
 
 
-#define	BASIC_LOC_VERSION	"1.0.0.4-20160504"
+#define	BASIC_LOC_VERSION	"1.0.0.5-20160519"
 
 
 #ifdef AEE_SIMULATOR
@@ -26,11 +26,11 @@ INCLUDES AND VARIABLE DEFINITIONS
 /************************************************************************/
 /* CONFIG ITEM                                                          */
 /************************************************************************/
-#define CONFIG_SVR_IP		"ip="		//·þÎñÆ÷IP
-#define CONFIG_SVR_PORT		"port="		//·þÎñÆ÷¶Ë¿Ú
-#define CONFIG_INTERVAL		"interval="	//¶¨Î»ÉÏ´«¼ä¸ô
+#define CONFIG_SVR_IP		"ip="		//æœåŠ¡å™¨IP
+#define CONFIG_SVR_PORT		"port="		//æœåŠ¡å™¨ç«¯å£
+#define CONFIG_INTERVAL		"interval="	//å®šä½ä¸Šä¼ é—´éš”
 
-#define DEFAULT_INTERVAL	30			//Ä¬ÈÏ30Ãë¼ä¸ô
+#define DEFAULT_INTERVAL	30			//é»˜è®¤30ç§’é—´éš”
 /*===========================================================================
 
 FOR ZTE G180 MACROS DECLARATIONS
@@ -83,22 +83,22 @@ typedef struct _CBasicLoc
 	INetMgr *			m_pINetMgr;             // Pointer to INetMgr
 	AEECallback			m_cbNetTimer;	        // Callback for NetWork
 	ISocket *			m_pISocket;             // Pointer to socket
-	uint32				m_nIdle;				//¿ÕÏÐ×´Ì¬
+	uint32				m_nIdle;				//ç©ºé—²çŠ¶æ€
 	
 	//Server Config
-	char				m_szIP[20];				//·þÎñÆ÷IP
-	uint16				m_nPort;				//·þÎñÆ÷¶Ë¿Ú
-	uint16				m_interval;				//ÉÏ´«¼ä¸ô
+	char				m_szIP[20];				//æœåŠ¡å™¨IP
+	uint16				m_nPort;				//æœåŠ¡å™¨ç«¯å£
+	uint16				m_interval;				//ä¸Šä¼ é—´éš”
 
-	char				m_szData[255];			//Êý¾ÝÄÚÈÝ
-	uint16				m_nLen;					//Êý¾Ý³¤¶È
+	char				m_szData[255];			//æ•°æ®å†…å®¹
+	uint16				m_nLen;					//æ•°æ®é•¿åº¦
 
 	//File 
 	IFileMgr*			m_fm;
 	IFile*				m_file;
 
 	//Device
-	char				m_meid[32];				//Éè±¸MEID
+	char				m_meid[32];				//è®¾å¤‡MEID
 
 }CBasicLoc;
 
@@ -127,7 +127,7 @@ static int		CBasicLoc_GetMeid(CBasicLoc *pme);
 //Load Config
 static uint32	LoadConfig(CBasicLoc *pme);
 
-//¸ñÊ½»¯¸¡µã Î³¶È:DDDMM.MMMM , ¾­¶È:DDMM, MMMMM
+//æ ¼å¼åŒ–æµ®ç‚¹ çº¬åº¦:DDDMM.MMMM , ç»åº¦:DDMM, MMMMM
 static char* FORMATFLT(char* szBuf, double val);
 
 
@@ -286,12 +286,12 @@ static boolean CBasicLoc_InitAppData(CBasicLoc *pme)
 {
 	DBGPRINTF("CBasicLoc_InitAppData");
     //Server Config
-    MEMSET(pme->m_szIP,0,20);			//·þÎñÆ÷IP
-    pme->m_nPort = 0;	    			//·þÎñÆ÷¶Ë¿Ú
-    pme->m_interval = 0;				//ÉÏ´«¼ä¸ô
-    MEMSET(pme->m_szData,0,255);        //Êý¾ÝÄÚÈÝ
-    pme->m_nLen = 0;					//Êý¾Ý³¤¶È
-    MEMSET(pme->m_meid,0,32);			//Éè±¸MEID
+    MEMSET(pme->m_szIP,0,20);			//æœåŠ¡å™¨IP
+    pme->m_nPort = 0;	    			//æœåŠ¡å™¨ç«¯å£
+    pme->m_interval = 0;				//ä¸Šä¼ é—´éš”
+    MEMSET(pme->m_szData,0,255);        //æ•°æ®å†…å®¹
+    pme->m_nLen = 0;					//æ•°æ®é•¿åº¦
+    MEMSET(pme->m_meid,0,32);			//è®¾å¤‡MEID
 
     //FileMgr
     if (AEE_SUCCESS != ISHELL_CreateInstance(pme->a.m_pIShell, AEECLSID_FILEMGR, (void **)&(pme->m_fm))) {
@@ -345,7 +345,8 @@ static void CBasicLoc_FreeAppData(CBasicLoc *pme)
 #if defined(AEE_STATIC) || defined(BASICLOC_STATIC)
 extern "C" int CBasicLoc_CreateInstance(AEECLSID ClsId, IShell * pIShell, IModule * pMod, void ** ppObj);
 
-extern "C" int CBasicLoc_Load(IShell * ps, void * pHelpers, IModule ** pMod) {
+extern "C" int BasicLoc_Load(IShell * ps, void * pHelpers, IModule ** pMod) {
+	DBGPRINTF("#BasicLoc_Load");
 	return AEEStaticMod_New(sizeof(AEEMod), ps, pHelpers, pMod, CBasicLoc_CreateInstance, NULL);
 }
 
@@ -441,7 +442,7 @@ static boolean CBasicLoc_HandleEvent(CBasicLoc * pme, AEEEvent eCode, uint16 wPa
 //		AEENotify *wp = (AEENotify *)dwParam;
 //		DBGPRINTF("receive notify cls=%x", wp->cls);
 //
-//		//¿ª»ú×ÔÆô¶¯
+//		//å¼€æœºè‡ªå¯åŠ¨
 //		if (wp->cls == AEECLSID_SHELL)
 //		{
 //			if (wp->dwMask & NMASK_SHELL_INIT)
@@ -524,7 +525,7 @@ static void CBasicLoc_GetGPSInfo_Callback(CBasicLoc *pme)
 		pGetGPSInfo->wIdleCount = 0;
 		DBGPRINTF("@GetGPSInfo fix:%d", pGetGPSInfo->dwFixNumber);
 
-		//ÉÏ±¨¶¨Î»Êý¾Ý
+		//ä¸ŠæŠ¥å®šä½æ•°æ®
 		CBasicLoc_UDPWrite(pme);
 	}
 	else if (pGetGPSInfo->theInfo.nErr == EIDLE) {
@@ -563,9 +564,9 @@ static void CBasicLoc_GetGPSInfo_Watcher(CBasicLoc *pme)
 
     DBGPRINTF("@GetGPSInfo_Watcher progress:%d wIdleCount:%d", pGetGPSInfo->wProgress, pGetGPSInfo->wIdleCount);
 
-	//ÖØÐÂÆô¶¯
-	//1 ¿ÕÏÐ30Ãë
-	//2 ³¢ÊÔ3·ÖÖÓÎ´¶¨Î»³É¹¦
+	//é‡æ–°å¯åŠ¨
+	//1 ç©ºé—²30ç§’
+	//2 å°è¯•3åˆ†é’Ÿæœªå®šä½æˆåŠŸ
 	if (pGetGPSInfo->wIdleCount > WATCHER_TIMER || pGetGPSInfo->wProgress > 60 * 3)
 	{
 		//play_tts(pme, L"restart location");
@@ -584,24 +585,24 @@ This function called by basicloc modoule.
 static void CBasicLoc_Net_Timer(CBasicLoc *pme)
 {
     DBGPRINTF("CBasicLoc_Net_Timer in");
-	//Ò»Ð¡Ê±»Ø»·
+	//ä¸€å°æ—¶å›žçŽ¯
 	pme->m_nIdle = (pme->m_nIdle + 1) % 30;
 
-	//²é¿´ÍøÂçÊÇ·ñ³õÊ¼»¯(20Ãë)
+	//æŸ¥çœ‹ç½‘ç»œæ˜¯å¦åˆå§‹åŒ–(20ç§’)
 	if (pme->m_nIdle > NET_TIMER)
 	{
-		//³õÊ¼»¯ÍøÂç¹ÜÀíÄ£¿é
+		//åˆå§‹åŒ–ç½‘ç»œç®¡ç†æ¨¡å—
 		if (pme->m_pINetMgr == NULL)
 		{
 			if (ISHELL_CreateInstance(pme->a.m_pIShell, AEECLSID_NET, (void**)(&pme->m_pINetMgr)) != SUCCESS)
 			{
 				play_tts(pme, L"Create Network Manager Failed!");
 				DBGPRINTF("Create Network Manager Failed!");
-				pme->m_nIdle = 0;	//µÈ´ý30Ãë¼ÌÐø³õÊ¼»¯NETMGR
+				pme->m_nIdle = 0;	//ç­‰å¾…30ç§’ç»§ç»­åˆå§‹åŒ–NETMGR
 			}
 		}
 		
-		//³õÊ¼»¯ÍøÂç½Ó¿Ú
+		//åˆå§‹åŒ–ç½‘ç»œæŽ¥å£
 		if (pme->m_pINetMgr != NULL && pme->m_pISocket == NULL)
 		{
 			pme->m_pISocket = INETMGR_OpenSocket(pme->m_pINetMgr, AEE_SOCK_DGRAM);
@@ -609,7 +610,7 @@ static void CBasicLoc_Net_Timer(CBasicLoc *pme)
 			if (pme->m_pISocket == NULL) {
 				play_tts(pme, L"OpenSocket Failed!");
 				DBGPRINTF("OpenSocket Failed!");
-				pme->m_nIdle = 0;	//µÈ´ý30Ãë¼ÌÐø³õÊ¼»¯SOCKET
+				pme->m_nIdle = 0;	//ç­‰å¾…30ç§’ç»§ç»­åˆå§‹åŒ–SOCKET
 			}
 		}
 	}
@@ -617,7 +618,7 @@ static void CBasicLoc_Net_Timer(CBasicLoc *pme)
 	ISHELL_SetTimerEx(pme->a.m_pIShell, 1000, &pme->m_cbNetTimer);
 }
 
-//¸ñÊ½»¯¸¡µã Î³¶È:DDDMM.MMMM , ¾­¶È:DDMM, MMMMM
+//æ ¼å¼åŒ–æµ®ç‚¹ çº¬åº¦:DDDMM.MMMM , ç»åº¦:DDMM, MMMMM
 static char* FORMATFLT(char* szBuf, double val)
 {
 	double tmp = 0, tt = 0, min = 0;
@@ -637,14 +638,14 @@ static char* FORMATFLT(char* szBuf, double val)
 		min = FDIV(min, 100.0);
 		tmp = FADD(tt, min);
 
-		//È¡³ö·Å´ó100±¶ºóµÄÕûÊý²¿·ÖºÍÐ¡Êý²¿·Ö
+		//å–å‡ºæ”¾å¤§100å€åŽçš„æ•´æ•°éƒ¨åˆ†å’Œå°æ•°éƒ¨åˆ†
 		//tmp = FMUL(FABS(val), 100);
 		tmp = FMUL(tmp, 100);
 		tt = FFLOOR(tmp);
 		d = FLTTOINT(tt);
 		m = FLTTOINT(FMUL(FSUB(tmp, tt), 100000.0));
 
-		//ËÄÉáÎåÈë
+		//å››èˆäº”å…¥
 		m = (m % 10 >= 5) ? (m + 10) / 10 : m / 10;
 
 		if (m > 0)
@@ -664,7 +665,7 @@ static char* FORMATFLT(char* szBuf, double val)
 				zero_pad++;
 			}
 			
-			//²¹³äºóÃæµÄ0
+			//è¡¥å……åŽé¢çš„0
 			if (zero_pad > 0)
 			{
 				STRNCPY(szZero, "0000", zero_pad);
@@ -686,7 +687,7 @@ static char* FORMATFLT(char* szBuf, double val)
 	return szBuf;
 }
 
-//·¢ËÍ¶¨Î»Êý¾Ý
+//å‘é€å®šä½æ•°æ®
 //*EX,2100428040,MOVE,053651,A,2945.7672,N,12016.8198,E,0.00,000,180510,FBFFFFFF#
 static void CBasicLoc_UDPWrite(CBasicLoc *pme)
 {
@@ -720,7 +721,7 @@ static void CBasicLoc_UDPWrite(CBasicLoc *pme)
 		return;
 	}
 	
-	//Èç¹ûÉè±¸±àºÅ²»´æÔÚ,³¢ÊÔÖØÐÂ¶ÁÈ¡Ò»´Î
+	//å¦‚æžœè®¾å¤‡ç¼–å·ä¸å­˜åœ¨,å°è¯•é‡æ–°è¯»å–ä¸€æ¬¡
 	if (STRLEN(pme->m_meid) == 0)
 	{
 #ifdef AEE_SIMULATOR
@@ -735,7 +736,7 @@ static void CBasicLoc_UDPWrite(CBasicLoc *pme)
 #endif
 	}
 
-	/* Ìî³äÐ­Òé */
+	/* å¡«å……åè®® */
 	//STRCPY(deviceID, "A000003841A7190");
 	STRCPY(deviceID, pme->m_meid);
 
@@ -753,7 +754,7 @@ static void CBasicLoc_UDPWrite(CBasicLoc *pme)
 	DBGPRINTF("@Lat: %s", szLat);
 	DBGPRINTF("@Lon: %s", szLon);
 
-	//Î»ÖÃÐÅÏ¢
+	//ä½ç½®ä¿¡æ¯
 	if (FCMP_G(pGetGPSInfo->theInfo.lat, 0) && FCMP_G(pGetGPSInfo->theInfo.lon, 0))
 	{
 		SPRINTF(location, "A,%s,N,%s,E,0.00,000", szLat, szLon);
@@ -772,7 +773,7 @@ static void CBasicLoc_UDPWrite(CBasicLoc *pme)
 		log_output(pme->m_file, location);
 	}
 
-	//Ê±¼ä
+	//æ—¶é—´
 	secs = GETTIMESECONDS();
 	GETJULIANDATE(secs, &julian);
 	SPRINTF(date, "%02d%02d16", julian.wDay, julian.wMonth);
@@ -843,7 +844,7 @@ int TrimSpace(char *inbuf, char *outbuf)
 }
 
 /************************************************************************/
-/* ¼ÓÔØÅäÖÃÎÄ¼þ£¬¶ÁÈ¡·þÎñÆ÷¼°ÉÏ´«ÅäÖÃ                                   */
+/* åŠ è½½é…ç½®æ–‡ä»¶ï¼Œè¯»å–æœåŠ¡å™¨åŠä¸Šä¼ é…ç½®                                   */
 /************************************************************************/
 static uint32 LoadConfig(CBasicLoc *pme)
 {
@@ -892,7 +893,7 @@ static uint32 LoadConfig(CBasicLoc *pme)
         goto EXIT;
 	}
 
-    //ÏÞ¶¨ÔÚ128×Ö½ÚÄÚ
+    //é™å®šåœ¨128å­—èŠ‚å†…
     len = fiInfo.dwSize;
     if (len >= 128)
         len = 127;
@@ -921,7 +922,7 @@ static uint32 LoadConfig(CBasicLoc *pme)
 	if (pszTok) {
 		pszTok = pszTok + STRLEN(CONFIG_SVR_IP);
 		nResult = DistToSemi(pszTok);
-		if (nResult < 7)	//IPÖÁÉÙÎª0.0.0.0
+		if (nResult < 7)	//IPè‡³å°‘ä¸º0.0.0.0
 		{
 			DBGPRINTF("Not Found IP");
             ret = EFAILED;
