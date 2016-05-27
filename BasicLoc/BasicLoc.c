@@ -200,7 +200,7 @@ void play_tts(CBasicLoc *pme, AECHAR* wtxt)
 {
 	uint16 len = 0;
 
-    //commented
+    //TODO commented
     return ;
 
 	DBGPRINTF("play_tts in");
@@ -888,6 +888,9 @@ static void CBasicLoc_UDPWrite(CBasicLoc *pme)
 		SPRINTF(location, "V,0000.0000,N,00000.0000,E,0.00,000");
 
 		play_tts(pme, L"locate invalid!");
+
+        DBGPRINTF("#locate invalid");
+        return;
 	}
 
 #ifdef BASICLOC_DEBUG

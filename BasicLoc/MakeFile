@@ -64,6 +64,8 @@ MYLIBS =
 LOCAL_OBJS =$(OBJSDIR)\AEEAppGen.o\
 			$(OBJSDIR)\AEEModGen.o\
 			$(OBJSDIR)\BasicLoc.o \
+			$(OBJSDIR)\e_asin.o \
+			$(OBJSDIR)\transform.o \
 			$(OBJSDIR)\Location.o
 
 #-------------------------------------------------------------------------------
