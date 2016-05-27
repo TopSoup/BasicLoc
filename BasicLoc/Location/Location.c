@@ -179,7 +179,29 @@ static void Loc_cbInfo( LocState *pts ) {
 		
 		pts->pResp->height = pts->theInfo.wAltitude - 500;
 		pts->pResp->velocityHor = FMUL( pts->theInfo.wVelocityHor,0.25);
-				
+		
+		//当前夹角
+		if (FCMP_G(FABS(pts->lastCoordinate.lat), 0))
+		{
+			pts->pResp->heading = Loc_Calc_Azimuth(pts->lastCoordinate.lat, pts->lastCoordinate.lon, pts->pResp->lat, pts->pResp->lon);
+		}
+		else
+		{
+			pts->pResp->heading = 0;
+		}
+
+		//For Test Hack
+#ifdef AEE_SIMULATOR
+		pts->pResp->lat = 38.0422378880;
+		pts->pResp->lon = 114.4925141047;
+#endif
+		if (pts->pResp->bSetDestPos)
+		{
+			//计算距离和方位角
+			pts->pResp->distance = Loc_Calc_Distance(pts->pResp->lat, pts->pResp->lon, pts->pResp->destPos.lat, pts->pResp->destPos.lon);
+			pts->pResp->destHeading = Loc_Calc_Azimuth(pts->pResp->lat, pts->pResp->lon, pts->pResp->destPos.lat, pts->pResp->destPos.lon);
+		}
+		
 		//记录历史定位信息
 		pts->lastCoordinate.lat = pts->pResp->lat;
 		pts->lastCoordinate.lon = pts->pResp->lon;
@@ -329,6 +351,18 @@ int Loc_Start( LocState *pts, PositionData *pData )
    }
 
    return nErr;
+}
+
+/* Calculate the distance between A and B */
+double Loc_Calc_Distance( double latA, double lngA, double latB, double lngB )
+{
+	return calc_distance(latA, lngA, latB, lngB);
+}
+
+/* Calculate the Azimuth between A and B */
+double Loc_Calc_Azimuth( double latA, double lngA, double latB, double lngB )
+{
+	return calc_azimuth(latA, lngA, latB, lngB);
 }
 
 /*======================================================================= 
@@ -658,6 +692,83 @@ uint32 Loc_SaveGPSSettings( IShell *pIShell )
    IFILEMGR_Release( pIFileMgr );
 
    return nResult;
+}
+
+void Loc_Test_All(void)
+{
+   Coordinate c1, c2;
+   double dis = 0, th = 0;
+   char szDis[64], szAzh[64];
+   AECHAR bufDis[32], bufAzh[32];
+
+   //DESTINATION
+   //beijing 39.911954, 116.377817
+   c1.lat = 39.911954;
+   c1.lon = 116.377817;
+
+   //1 chengde 40.8493953666,118.0478839599
+   c2.lat = 40.8493953666;
+   c2.lon = 118.0478839599;
+   dis = Loc_Calc_Distance(c1.lat, c1.lon, c2.lat, c2.lon);
+   th = Loc_Calc_Azimuth(c1.lat, c1.lon, c2.lat, c2.lon);
+
+   MEMSET(szDis,0,sizeof(szDis));
+   FLOATTOWSTR(dis, bufDis, 32);
+   WSTRTOSTR(bufDis,szDis, 64);
+
+   MEMSET(szAzh,0,sizeof(szAzh));
+   FLOATTOWSTR(th, bufAzh, 32);
+   WSTRTOSTR(bufAzh, szAzh, 64);
+   
+   DBGPRINTF("location_get 1 dis:%s azh:%s", szDis, szAzh);
+
+   //2 shanghai 31.1774276, 121.5272106	//1076679.0804040465
+   c2.lat = 31.1774276;
+   c2.lon = 121.5272106;
+   dis = Loc_Calc_Distance(c1.lat, c1.lon, c2.lat, c2.lon);
+   th = Loc_Calc_Azimuth(c1.lat, c1.lon, c2.lat, c2.lon);
+
+   MEMSET(szDis,0,sizeof(szDis));
+   FLOATTOWSTR(dis, bufDis, 32);
+   WSTRTOSTR(bufDis,szDis, 64);
+
+   MEMSET(szAzh,0,sizeof(szAzh));
+   FLOATTOWSTR(th, bufAzh, 32);
+   WSTRTOSTR(bufAzh, szAzh, 64);   
+   DBGPRINTF("location_get 2 dis:%s azh:%s", szDis, szAzh);
+
+
+   //3 sjz 38.0422378880,114.4925141047
+   c2.lat = 38.0422378880;
+   c2.lon = 114.4925141047;
+   dis = Loc_Calc_Distance(c1.lat, c1.lon, c2.lat, c2.lon);
+   th = Loc_Calc_Azimuth(c1.lat, c1.lon, c2.lat, c2.lon);
+
+   MEMSET(szDis,0,sizeof(szDis));
+   FLOATTOWSTR(dis, bufDis, 32);
+   WSTRTOSTR(bufDis,szDis, 64);
+
+   MEMSET(szAzh,0,sizeof(szAzh));
+   FLOATTOWSTR(th, bufAzh, 32);
+   WSTRTOSTR(bufAzh, szAzh, 64);
+   DBGPRINTF("location_get 3 dis:%s azh:%s", szDis, szAzh);
+
+
+   //4 zhangjiakou 40.3964667463,114.8377011418
+   c2.lat = 40.3964667463;
+   c2.lon = 114.8377011418;
+   dis = Loc_Calc_Distance(c1.lat, c1.lon, c2.lat, c2.lon);
+   th = Loc_Calc_Azimuth(c1.lat, c1.lon, c2.lat, c2.lon);
+
+   MEMSET(szDis,0,sizeof(szDis));
+   FLOATTOWSTR(dis, bufDis, 32);
+   WSTRTOSTR(bufDis,szDis, 64);
+
+   MEMSET(szAzh,0,sizeof(szAzh));
+   FLOATTOWSTR(th, bufAzh, 32);
+   WSTRTOSTR(bufAzh, szAzh, 64);
+   DBGPRINTF("location_get 4 dis:%s azh:%s", szDis, szAzh);
+
 }
 
 

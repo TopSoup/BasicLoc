@@ -15,6 +15,7 @@ GENERAL DESCRIPTION:
 =====================================================*/
 #include "AEEComdef.h"
 #include "AEEPosDet.h"
+#include "transform.h"
 
 #define LOC_CONFIG_FILE "gpsConfig.txt"
 #define LOC_CONFIG_OPT_STRING       "GPS_OPTIMIZATION_MODE = "
@@ -40,7 +41,9 @@ typedef struct {
    short  height;    /* Height from WGS-84 Geoid */
    double velocityHor; /* Horizontal velocity, meters/second*/
    double heading;	 /*  Current Heading degrees  */
-   
+   double distance;  /*  Distance between current position with destPos */
+   double destHeading; /* Heading degrees between current position with destPos */
+
    //Config Param
    AEEGPSConfig gpsConfig;
 
@@ -95,6 +98,15 @@ extern "C" {
    ** further used with Loc_Start. Only CALLBACK_Cancel(pcb) releases
    ** the object. */
    int Loc_Stop( LocState *pts );
+
+   /* Calculate the distance between A and B */
+   double Loc_Calc_Distance( double latA, double lngA, double latB, double lngB );
+
+   /* Calculate the Azimuth between A and B */
+   double Loc_Calc_Azimuth( double latA, double lngA, double latB, double lngB );
+
+   /* For test */
+   void Loc_Test_All(void);
 
 #ifdef __cplusplus
 }

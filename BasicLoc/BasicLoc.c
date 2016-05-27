@@ -1,6 +1,7 @@
 /*===============================================================================
 INCLUDES AND VARIABLE DEFINITIONS
 =============================================================================== */
+#include <Location/Location.h>
 #include "AEEStdLib.h"
 #include "AEEAppGen.h"        // Applet helper file
 #include "AEEWeb.h"
@@ -12,7 +13,7 @@ INCLUDES AND VARIABLE DEFINITIONS
 #include "Location.h"
 
 
-#define	BASIC_LOC_VERSION	"1.0.0.5-20160519"
+#define	BASIC_LOC_VERSION	"1.0.0.6-20160527"
 
 
 #ifdef AEE_SIMULATOR
@@ -687,6 +688,105 @@ static char* FORMATFLT(char* szBuf, double val)
 	return szBuf;
 }
 
+/*===========================================================================
+   This function format double num to char, 2 pos hold
+===========================================================================*/
+char* FLT2SZ_2(char* szBuf, double val)
+{
+    double tmp = 0, tt = 0, min = 0;
+    int d = 0, m = 0;
+    int zero_pad = 0;
+    char szZero[4];
+
+    if (szBuf == NULL)
+        return NULL;
+
+    tmp = FABS(val);
+    if (FCMP_GE(tmp, 0.01))
+    {
+        tt = FFLOOR(tmp);
+        d = FLTTOINT(tt);
+        m = FLTTOINT(FMUL(FSUB(tmp, tt), 1000.0));
+        m = (m % 10 >= 5) ? (m + 10) / 10 : m / 10;
+        if (m > 0)
+        {
+            if (m < 10)	    //0.01
+            {
+                zero_pad++;
+            }
+
+            if (zero_pad > 0)
+            {
+                STRNCPY(szZero, "00", zero_pad);
+                szZero[zero_pad] = 0;
+            }
+        }
+    }
+    else
+    {
+        d = 0;
+        m = 0;
+    }
+
+    if (zero_pad > 0)
+        SPRINTF(szBuf, "%d.%s%d", d, szZero, m);
+    else
+        SPRINTF(szBuf, "%d.%d", d, m);
+    return szBuf;
+}
+
+/*===========================================================================
+   This function format double num to char, 0 pos hold
+===========================================================================*/
+char* FLT2SZ_0(char* szBuf, double val)
+{
+    double tmp = 0, tt = 0, min = 0;
+    int d = 0;
+    int zero_pad = 0;
+    char szZero[4];
+
+    if (szBuf == NULL)
+        return NULL;
+
+    tmp = FABS(val);
+    if (FCMP_GE(tmp, 0.01))
+    {
+        tt = FFLOOR(tmp);
+        d = FLTTOINT(tt);
+        if (d % 10 > 5)
+            d ++;
+
+        if (d > 0)
+        {
+            if (d < 100)	//12
+            {
+                zero_pad++;
+            }
+
+            if (d < 10)		//1
+            {
+                zero_pad++;
+            }
+
+            //补充后面的0
+            if (zero_pad > 0)
+            {
+                STRNCPY(szZero, "0000", zero_pad);
+                szZero[zero_pad] = 0;
+            }
+        }
+    }
+    else
+    {
+        d = 0;
+    }
+
+    if (zero_pad > 0)
+        SPRINTF(szBuf, "%s%d", szZero, d);
+    else
+        SPRINTF(szBuf, "%d", d);
+    return szBuf;
+}
 //发送定位数据
 //*EX,2100428040,MOVE,053651,A,2945.7672,N,12016.8198,E,0.00,000,180510,FBFFFFFF#
 static void CBasicLoc_UDPWrite(CBasicLoc *pme)
@@ -696,8 +796,9 @@ static void CBasicLoc_UDPWrite(CBasicLoc *pme)
 	int16 nPort = 0;
 	char deviceID[20];
 	char location[64];
-	char szLat[32], szLon[32];
+	char szLat[32], szLon[32], szVel[32], szHeading[32];
 	char date[16];
+	double vel = 0;
 
 	JulianType julian;
 	uint32 secs = 0;
@@ -749,15 +850,21 @@ static void CBasicLoc_UDPWrite(CBasicLoc *pme)
 	pGetGPSInfo->theInfo.lon = 114.5143068110;//116.4039570000;//114.5117308110;//114.6364600054;
 #endif
 
+	vel = FMUL(FDIV(pGetGPSInfo->theInfo.velocityHor, 1852.0), 3600.0);	//1节=1.852公里/小时 velocityHor为m/s --> 1节 = V*3600/1852
 	FORMATFLT(szLat, pGetGPSInfo->theInfo.lat);
 	FORMATFLT(szLon, pGetGPSInfo->theInfo.lon);
+    FLT2SZ_2(szVel, vel);
+    FLT2SZ_0(szHeading, pGetGPSInfo->theInfo.heading);
+
 	DBGPRINTF("@Lat: %s", szLat);
 	DBGPRINTF("@Lon: %s", szLon);
+    DBGPRINTF("@Vel: %s", szVel);
+    DBGPRINTF("@Vel: %s", szHeading);
 
 	//位置信息
 	if (FCMP_G(pGetGPSInfo->theInfo.lat, 0) && FCMP_G(pGetGPSInfo->theInfo.lon, 0))
 	{
-		SPRINTF(location, "A,%s,N,%s,E,0.00,000", szLat, szLon);
+		SPRINTF(location, "A,%s,N,%s,E,%s,%s", szLat, szLon, szVel, szHeading);
 
 		play_tts(pme, L"locate success!");
 	}
@@ -776,7 +883,7 @@ static void CBasicLoc_UDPWrite(CBasicLoc *pme)
 	//时间
 	secs = GETTIMESECONDS();
 	GETJULIANDATE(secs, &julian);
-	SPRINTF(date, "%02d%02d16", julian.wDay, julian.wMonth);
+	SPRINTF(date, "%02d%02d%02d", julian.wDay, julian.wMonth, (julian.wYear % 100));
 
 	SPRINTF(pme->m_szData, "*EX,%s,MOVE,053651,%s,%s,FBFFFFFF#", deviceID, location, date);
 	pme->m_nLen = STRLEN(pme->m_szData) + 1;

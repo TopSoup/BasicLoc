@@ -22,6 +22,9 @@ include_directories(./BasicLoc
                     d:/brew/sdk/inc
                     d:/brew/sdk/sdk/inc)
 set(SOURCE_FILES
+    BasicLoc/Location/e_asin.c
+    BasicLoc/Location/transform.c
+    BasicLoc/Location/transform.h
     BasicLoc/Location/Location.c
     BasicLoc/Location/Location.h
     BasicLoc/AEEAppGen.c
