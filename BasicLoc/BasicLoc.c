@@ -200,6 +200,9 @@ void play_tts(CBasicLoc *pme, AECHAR* wtxt)
 {
 	uint16 len = 0;
 
+    //commented
+    return ;
+
 	DBGPRINTF("play_tts in");
 	if (wtxt == NULL)
 	{
@@ -233,12 +236,16 @@ static int CBasicLoc_GetMeid(CBasicLoc *pme)
             pme->m_meid[i] = TOUPPER(pme->m_meid[i]);
         }
 		SPRINTF(szBuf, "Get MEID: %s\n", pme->m_meid);
+#ifdef BASICLOC_DEBUG
 		log_output(pme->m_file, szBuf);
+#endif
 	}
 	else
 	{
 		SPRINTF(szBuf, "Get MEID Failed! ERR:%d\n", err);
+#ifdef BASICLOC_DEBUG
 		log_output(pme->m_file, szBuf);
+#endif
 	}
 
 	return err;
@@ -260,7 +267,9 @@ static void CBasicLoc_Start(CBasicLoc *pme)
     if (SUCCESS != LoadConfig(pme))
     {
         DBGPRINTF("Please Config Server info!");
+#ifdef BASICLOC_DEBUG
         log_output(pme->m_file, "Please Configure Server Information");
+#endif
         play_tts(pme, L"Please Configure Server Information");
     }
 
@@ -294,6 +303,7 @@ static boolean CBasicLoc_InitAppData(CBasicLoc *pme)
     pme->m_nLen = 0;					//数据长度
     MEMSET(pme->m_meid,0,32);			//设备MEID
 
+#ifdef BASICLOC_DEBUG
     //FileMgr
     if (AEE_SUCCESS != ISHELL_CreateInstance(pme->a.m_pIShell, AEECLSID_FILEMGR, (void **)&(pme->m_fm))) {
         DBGPRINTF("ISHELL_CreateInstance for AEECLSID_FILEMGR failed!");
@@ -319,6 +329,7 @@ static boolean CBasicLoc_InitAppData(CBasicLoc *pme)
             return FALSE;
         }
     }
+#endif
 
 	return TRUE;
 }
@@ -339,8 +350,10 @@ static void CBasicLoc_FreeAppData(CBasicLoc *pme)
 
 	BL_RELEASEIF(pme->m_pINetMgr);
 
+#ifdef BASICLOC_DEBUG
 	BL_RELEASEIF(pme->m_file);
 	BL_RELEASEIF(pme->m_fm);
+#endif
 }
 
 #if defined(AEE_STATIC) || defined(BASICLOC_STATIC)
@@ -816,7 +829,9 @@ static void CBasicLoc_UDPWrite(CBasicLoc *pme)
         if (SUCCESS != LoadConfig(pme))
         {
             DBGPRINTF("Please Config Server info!");
+#ifdef BASICLOC_DEBUG
             log_output(pme->m_file, "Please Configure Server Information");
+#endif
             play_tts(pme, L"Please Configure Server Information");
         }
 		return;
@@ -875,10 +890,12 @@ static void CBasicLoc_UDPWrite(CBasicLoc *pme)
 		play_tts(pme, L"locate invalid!");
 	}
 
+#ifdef BASICLOC_DEBUG
 	if (pme->m_file)
 	{
 		log_output(pme->m_file, location);
 	}
+#endif
 
 	//时间
 	secs = GETTIMESECONDS();
